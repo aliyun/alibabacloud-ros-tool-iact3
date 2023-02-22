@@ -1,0 +1,44 @@
+general:
+  auth:
+    name: default
+    location: '~/.aliyun/config.json'
+  oss_config:
+    bucket_name: example-name
+    bucket_region: cn-hangzhou
+  parameters:
+    Key1: Value1
+    Key2: Value2
+  regions:
+    - cn-hangzhou
+    - cn-shanghai
+  tags:
+    Tag1: value1
+    Tag2: value2
+project:
+  name: name
+  parameters:
+    Key1: Value-new
+    Key3: value3
+  regions:
+    - cn-hangzhou
+    - cn-beijing
+  role_name: my-test-role
+  tags:
+    Tag1: value-new
+    Tag3: value3
+  template_config:
+    template_location: ros-template/
+tests:
+  test1:
+    name: test
+    parameters:
+      Key1: Value1-base-test
+      Key2: value2-base-test
+    regions:
+      - cn-hangzhou
+      - cn-shanghai
+    tags:
+      Key: Value-base-test
+  test2:
+    parameters:
+      Key4: value4

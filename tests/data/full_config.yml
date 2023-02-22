@@ -1,0 +1,41 @@
+general:
+  auth:
+    name: default
+    location: ~/.aliyun/config.json
+  oss_config:
+    bucket_name: iactvt-beijing
+    bucket_region: cn-beijing
+    object_prefix: specified_prefix
+  parameters:
+    VpcId: '$[iact3-auto]'
+    VswitchId: '$[iact3-auto]'
+    SecurityGroupId: '$[iact3-auto]'
+  tags:
+    environment: general-test
+  regions:
+    - cn-hangzhou
+project:
+  name: iact3-full-test
+  regions:
+  - cn-hangzhou
+  - cn-beijing
+  - cn-shanghai
+  parameters:
+    InstanceChargeType: PostPaid
+    NetworkType: vpc
+    AllocatePublicIP: false
+    InstanceName: '$[iact3-auto]'
+    Password: '$[iact3-auto]'
+  template_config:
+    template_location: ecs_instance.template.json
+  tags:
+    iact3-project: iact3-full-test
+tests:
+  failed-test:
+    parameters:
+      ZoneId: 'cn-hangzhou-g'
+      InstanceType: 'ecs.g6.large'
+      SystemDiskCategory: 'cloud_ssd'
+      DataDiskCategory: 'cloud_ssd'
+    regions:
+      - cn-hangzhou

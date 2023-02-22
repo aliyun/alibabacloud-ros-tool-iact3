@@ -1,0 +1,20 @@
+project:
+  name: test123
+  regions:
+  - cn-hangzhou
+  parameters:
+    Key1: pro
+  oss_config:
+    bucket_name: iactvt-beijing
+    bucket_region: cn-beijing
+    object_prefix: test-local
+tests:
+  default:
+    parameters:
+      Key1: abc
+      Key2: aaa
+    regions:
+    - cn-beijing
+  other:
+    parameters:
+      Key1: aaa

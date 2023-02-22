@@ -1,0 +1,16 @@
+*.pyc
+build/
+include/
+share/
+lib/
+dist/
+.cache/
+.Python
+.venv/
+.idea/
+iact3.egg-info/
+.DS_Store
+/tests/data/iact3_outputs/
+alibabacloud_ros_iact3.egg-info/
+/tests/iact3_outputs/
+.tox/

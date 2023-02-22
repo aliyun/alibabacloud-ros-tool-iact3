@@ -1,0 +1,27 @@
+project:
+  name: unit
+  parameters:
+    Key: Value-data1-project
+    Key1: Value1-data1-project
+  regions:
+    - cn-qingdao
+    - cn-beijing
+  tags:
+    Tag1: value1-data1-project
+    Tag2: value2-data1-project
+tests:
+  test1:
+    name: unit1
+    parameters:
+      Key1: Value1-data1-test
+      Key2: value2-data1-test
+    regions:
+      - cn-shanghai
+    tags:
+      Key: Value-data1-test
+  test3:
+    name: unit3
+    regions:
+      - cn-shanghai
+      - cn-hangzhou
+      - cn-beijing

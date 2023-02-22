@@ -1,0 +1,115 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Parameters": {
+    "ZoneId": {
+      "Type": "String"
+    },
+    "InstanceType": {
+      "Type": "String"
+    },
+    "SystemDiskCategory": {
+      "Type": "String"
+    },
+    "DataDiskCategory": {
+      "Type": "String"
+    },
+    "VpcId": {
+      "Type": "String"
+    },
+    "VswitchId": {
+      "Type": "String"
+    },
+    "CommonName": {
+      "Type": "String"
+    },
+    "Password": {
+      "Type": "String"
+    },
+    "InstanceChargeType": {
+      "Type": "String"
+    },
+    "NetworkType": {
+      "Type": "String"
+    },
+    "AllocatePublicIP": {
+      "Type": "String"
+    },
+    "SecurityGroupId": {
+      "Type": "String"
+    }
+},
+  "Resources": {
+    "Server": {
+      "Type": "ALIYUN::ECS::InstanceGroup",
+      "Properties": {
+        "ImageId": "centos_7",
+        "MaxAmount": 2,
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "VSwitchId": {
+          "Ref": "VswitchId"
+        },
+        "InstanceName": {
+          "Ref": "CommonName"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "SystemDiskCategory": {
+          "Ref": "SystemDiskCategory"
+        },
+        "DiskMappings": [
+          {
+            "Category": {"Ref": "DataDiskCategory"},
+            "Size": 500
+          },
+          {
+            "Category": {"Ref": "DataDiskCategory"},
+            "Size": 500
+          }
+        ],
+        "Password": {
+          "Ref": "Password"
+        },
+        "InstanceChargeType": {
+          "Ref": "InstanceChargeType"
+        },
+        "NetworkType": {
+          "Ref": "NetworkType"
+        },
+        "AllocatePublicIP": {
+          "Ref": "AllocatePublicIP"
+        },
+        "SecurityGroupId": {
+          "Ref": "SecurityGroupId"
+        }
+      }
+    }
+  },
+  "Metadata": {
+    "ALIYUN::ROS::Interface": {
+      "ParameterGroups": [
+        {
+          "Parameters": [
+            "NetworkType",
+            "InstanceChargeType",
+            "ZoneId",
+            "InstanceType",
+            "SystemDiskCategory",
+            "DataDiskCategory",
+            "VpcId",
+            "VswitchId",
+            "InstanceName",
+            "Password",
+            "AllocatePublicIP",
+            "SecurityGroupId"
+          ]
+        }
+      ]
+    }
+  }
+}

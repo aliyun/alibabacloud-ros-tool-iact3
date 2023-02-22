@@ -1,0 +1,3 @@
+include requirements.txt requirements-dev.txt
+include requirements-dev.txt
+recursive-include iact3/report *.css

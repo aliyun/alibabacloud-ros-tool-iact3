@@ -1,0 +1,21 @@
+project:
+  name: real-test
+  parameters:
+    VpcId: $[iact3-auto]
+    ZoneId: $[iact3-auto]
+    VSwitchId: $[iact3-auto]
+    InstancePassword: $[iact3-auto]
+    InstanceType: $[iact3-auto]
+  regions:
+  - cn-beijing
+  template_config:
+    template_url: https://iactvt-beijing.oss-cn-beijing.aliyuncs.com/long_text_2022-12-26-17-19-50.txt
+tests:
+  default:
+    parameters:
+      SlaveAmount: 4
+general:
+  oss_config:
+    object_prefix: service
+    bucket_region: cn-beijing
+    bucket_name: iactvt-beijing

@@ -1,0 +1,21 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  Key1:
+    Type: String
+    Default: null
+  Key2:
+    Type: String
+    Default: null
+Resources:
+  sleep:
+    Type: ALIYUN::ROS::Sleep
+    Properties:
+      CreateDuration: 1
+      DeleteDuration: 1
+Outputs:
+  Key1:
+    Value:
+      Ref: Key1
+  Key2:
+    Value:
+      Ref: Key2

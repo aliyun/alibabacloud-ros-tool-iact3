@@ -1,0 +1,7 @@
+ROSTemplateFormatVersion: "2015-09-01"
+Resources:
+  vpc:
+    Type: ALIYUN::ECS::VPC
+    Properties:
+      VpcName: iact3
+      CidrBlock: 10.10.10.10/32

@@ -1,0 +1,6 @@
+project:
+  name: test123
+  regions:
+  - cn-hangzhou
+tests:
+  default: {}
