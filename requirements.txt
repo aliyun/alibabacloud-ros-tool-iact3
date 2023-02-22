@@ -48,7 +48,6 @@ oss2==2.16.0
 packaging>=21.3
 pbr==5.11.0
 pluggy==1.0.0
-py==1.11.0
 pycparser==2.21
 pycryptodome==3.16.0
 pyparsing==3.0.9
