@@ -105,7 +105,6 @@ METADATA: Mapping[str, Mapping[str, Any]] = {
 
 # types
 ParameterKey = NewType('ParameterKey', str)
-ParameterValue = Union[str, int, bool, List[Union[int, str]]]
 TagKey = NewType('TagKey', str)
 TagValue = NewType('TagValue', str)
 Region = NewType('Region', str)
@@ -309,7 +308,7 @@ class GeneralConfig(JsonSchemaMixin):
         default_factory=Auth, metadata=METADATA[AUTH])
     regions: Optional[List[Region]] = field(
         default_factory=list, metadata=METADATA[REGIONS])
-    parameters: Optional[Dict[ParameterKey, ParameterValue]] = field(
+    parameters: Optional[Dict[ParameterKey, Any]] = field(
         default_factory=dict, metadata=METADATA[PARAMETERS])
     parameters_order: Optional[List[str]] = field(default_factory=list)
     tags: Optional[Dict[TagKey, TagValue]] = field(
