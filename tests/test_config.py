@@ -14,7 +14,8 @@ class TestConfig(BaseTest):
             REGIONS: ['cn-hangzhou', 'cn-shanghai'],
             PARAMETERS: {
                 'Key1': 'Value1',
-                'Key2': 'Value2'
+                'Key2': 'Value2',
+                'Tags': [{'Key': 'ros', 'Value': 'xxxx'}]
             },
             TAGS: {
                 'Tag1': 'value1',
