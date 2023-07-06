@@ -31,7 +31,8 @@ class Test:
                   project_path: str = None,
                   keep_failed: bool = False,
                   dont_wait_for_delete: bool = False,
-                  generate_parameters: bool = False
+                  generate_parameters: bool = False,
+                  log_format: str = None
                   ) -> None:
         '''
         tests whether IaC templates are able to successfully launch
@@ -45,6 +46,7 @@ class Test:
         :param keep_failed: do not delete failed stacks
         :param dont_wait_for_delete: exits immediately after calling delete stack
         :param generate_parameters: generate pseudo parameters
+        :param log_format: comma separated list of log format (xml,json)
         :return: None
         '''
         # todo --failed param
@@ -63,7 +65,7 @@ class Test:
             return
 
         async with tests:
-            await tests.report(output_directory, project_path)
+            await tests.report(output_directory, project_path, log_format)
 
     @staticmethod
     async def clean(regions: str = None):
@@ -97,6 +99,7 @@ class Test:
             regions=regions
         )
         Test._get_parameters(tests)
+    
 
     @staticmethod
     def _get_parameters(tests: StackTest):

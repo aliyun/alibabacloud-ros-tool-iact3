@@ -1,6 +1,8 @@
 import asyncio
 import datetime
 import json
+import xml.etree.ElementTree as ET
+import xml.dom.minidom as minidom
 import logging
 import os
 import textwrap
@@ -143,25 +145,67 @@ class ReportBuilder:
             events.append(event_details)
         return events
 
-    async def create_logs(self):
+    async def get_resources(self, stack: Stack):
+        stack_resources = await stack.resources(refresh=True)
+        resources = []
+        for resource in stack_resources:
+            resource_details = {
+                "TimeStamp": str(resource.last_updated_timestamp),
+                "ResourceStatus": resource.status,
+                "ResourceType": resource.type,
+                "LogicalResourceId": resource.logical_id,
+                "PhysicalResourceId": resource.physical_id
+            }
+            if resource.status_reason:
+                resource_details["ResourceStatusReason"] = resource.status_reason
+            else:
+                resource_details["ResourceStatusReason"] = ""
+            resources.append(resource_details)
+        return resources
+
+    async def create_logs(self, log_format:str):
+        if log_format:
+            log_formats = log_format.split(',')
+        else:
+            log_formats = []
         tasks = []
         file_names = []
         for stack in self._stacks.stacks:
-            file_name = f'{stack.name}-{stack.region}.txt'
-            task = asyncio.create_task(self.write_logs(stack, self._output_file / file_name))
+            file_name = f'{stack.name}-{stack.region}'
+            task = asyncio.create_task(self.write_logs(stack, self._output_file / file_name, log_formats))
             tasks.append(task)
-            file_names.append(file_name)
+            file_names.append(file_name + ".txt")
+            if "json" in log_formats:
+                file_names.append(file_name + ".json")
+            if "xml" in log_formats:
+                file_names.append(file_name + ".xml")
         await asyncio.gather(*tasks)
         file_names.append(self._report_json_name)
         return file_names
 
-    async def write_logs(self, stack: Stack, log_path: Path):
+    async def add_attr_minidom(self, doc: minidom.Document,father_node: minidom.Element, label, value):     
+        child = doc.createElement(label)
+        father_node.appendChild(child)
+        if isinstance(value, dict):
+            for k, v in value.items():
+                await self.add_attr_minidom(doc, child, k, v)
+            
+        elif isinstance(value, list):
+            for list_item in value:
+                await self.add_attr_minidom(doc, child, "item", list_item)
+        else:
+            child_content = doc.createTextNode(str(value))
+            child.appendChild(child_content)
+       
+    async def write_logs(self, stack: Stack, log_path: Path, log_formats: list):
         stack_name = stack.name
         region = stack.region
         stack_id = stack.id or ''
         parameters = stack.parameters
 
         events = await self.get_events(stack) if stack.id else []
+
+        resources = await self.get_resources(stack) if stack.id else []
 
         if stack.launch_succeeded:
             tested_result = 'Success'
@@ -170,7 +214,44 @@ class ReportBuilder:
             tested_result = 'Failed'
             reason = f'{stack.status}, {stack.status_reason}'
 
-        async with aiofiles.open(str(log_path), "a", encoding="utf-8") as log_output:
+        test_time = datetime.datetime.now().strftime("%A, %d. %B %Y %I:%M%p")
+
+        if "json" in log_formats:
+            with open(str(log_path)+'.json', 'w', encoding='utf-8') as log_output:       
+                json_output = {}
+                json_output["Region"] = region
+                json_output["StackName"] = stack_name
+                json_output["StackId"] = stack_id
+                json_output["Parameters"] = parameters
+                json_output["TestedResult"] = tested_result
+                json_output["ResultReason"] = str(reason)
+                json_output["Events"] = events
+                json_output["Resources"] = resources
+                json_output["TestTime"] = test_time
+                json.dump(json_output, log_output, ensure_ascii=False, indent=4)
+                log_output.close()
+        
+        if "xml" in log_formats:
+            with open(str(log_path)+'.xml', 'w', encoding='utf-8') as log_output:
+                xml_doc = minidom.Document()
+                root = xml_doc.createElement(f'{stack.name}-{stack.region}')
+                xml_doc.appendChild(root)
+
+                await self.add_attr_minidom(xml_doc, root, "Region", region)
+                await self.add_attr_minidom(xml_doc, root, "StackName", stack_name)
+                await self.add_attr_minidom(xml_doc, root, "StackId", stack_id)
+                await self.add_attr_minidom(xml_doc, root, "Parameters", parameters)
+                await self.add_attr_minidom(xml_doc, root, "TestedResult", tested_result)
+                await self.add_attr_minidom(xml_doc, root, "ResultReason", reason)
+                await self.add_attr_minidom(xml_doc, root, "Events", events)
+                await self.add_attr_minidom(xml_doc, root, "Resources", resources)
+                await self.add_attr_minidom(xml_doc, root, "TestTime", test_time)
+            
+                log_output.write(xml_doc.toprettyxml(indent="\t"))
+
+
+
+        async with aiofiles.open(str(log_path)+'.txt', "a", encoding="utf-8") as log_output:
             await log_output.write(
                 "------------------------------------------------------------------"
                 "-----------\n"
@@ -212,12 +293,22 @@ class ReportBuilder:
                 "*************\n"
             )
             await log_output.write(
+                "******************************************************************"
+                "***********\n"
+            )
+            await log_output.write("Resources:  \n")
+            await log_output.write(tabulate.tabulate(resources, headers="keys"))
+            await log_output.write(
+                "\n****************************************************************"
+                "*************\n"
+            )
+            await log_output.write(
                 "------------------------------------------------------------------"
                 "-----------\n"
             )
             await log_output.write(
                 "Tested on: "
-                + datetime.datetime.now().strftime("%A, %d. %B %Y %I:%M%p")
+                + test_time
                 + "\n"
             )
             await log_output.write(
