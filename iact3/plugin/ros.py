@@ -121,7 +121,7 @@ class StackPlugin(ROSPlugin):
         kwargs = dict(
             StackId=stack_id
         )
-        result = await self.send_request('ListStacksRequest', **kwargs)
+        result = await self.send_request('ListStackResourcesRequest', **kwargs)
         return result.get('Resources')
 
     async def get_stack_resource(self, stack_id, logical_resource_id, show_resource_attributes=False,
@@ -174,3 +174,15 @@ class StackPlugin(ROSPlugin):
             TemplateVersion=template_version
         )
         return await self.send_request('GetTemplate', **kwargs)
+    
+    async def get_template_estimate_cost(self, template_body: str = None,
+                           parameters: dict = None, region_id: str = None,
+                           template_url: str = None):
+        kwargs = dict(
+            TemplateBody=template_body,
+            TemplateURL=template_url,
+            RegionId=region_id
+        )
+        self._convert_parameters(parameters, kwargs)
+        result = await self.send_request('GetTemplateEstimateCostRequest', **kwargs)
+        return result['Resources']
