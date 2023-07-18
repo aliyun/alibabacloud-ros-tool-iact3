@@ -18,7 +18,6 @@ class Cost:
                     config_file: str = DEFAULT_CONFIG_FILE,
                     regions: str = None):
         '''
-        查询价格
         :param template: path to a template
         :param config_file: path to a config file
         :param regions: comma separated list of regions

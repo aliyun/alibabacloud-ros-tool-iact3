@@ -158,7 +158,20 @@ class TerminalPrinter:
                 status_reason = textwrap.fill(stack.status_reason, width=line_width_default-16, break_long_words=False, replace_whitespace=True, subsequent_indent=subsequent_indent)
                 status_reason = PrintMsg.text_red_background_write + status_reason.replace('\n', f'{PrintMsg.rst_color}\n{PrintMsg.text_red_background_write}').replace(subsequent_indent,f'{PrintMsg.rst_color}{subsequent_indent}{PrintMsg.text_red_background_write}') + PrintMsg.rst_color
                 LOG.info("{} status reason: {} {}\n".format("\u2517", status_reason, PrintMsg.rst_color))
-  
+    
+    @staticmethod
+    def _display_validation(template_validation: dict):
+        result_json =  {
+            "validate_result": template_validation["Code"] if "Code" in template_validation else 'LegalTemplate',
+            "result_reason": template_validation["Message"] if "Message" in template_validation else 'Check passed'
+        }
+        tab = tabulate.tabulate([result_json], headers="keys")
+        tab_lines = tab.splitlines() 
+        for i, line in enumerate(tab_lines):
+            if i >= 2 and result_json['validate_result'] != 'LegalTemplate':
+                LOG.error(f'{PrintMsg.text_red_background_write}{line}{PrintMsg.rst_color}')    
+            else:
+                LOG.info(line)
 
     @staticmethod
     def _is_test_in_progress(status_dict, status_condition="IN_PROGRESS"):

@@ -111,15 +111,17 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
             return self.api_client()(self.config)
         return self._client
 
-    async def send_request(self, request_name: str, **kwargs) -> dict:
+    async def send_request(self, request_name: str, ignoreException: bool=False, **kwargs) -> dict:
         request = self._build_request(request_name, **kwargs)
         api_name = self._get_api_name(request_name)
         action_name = self._get_action_name(api_name)
         func = getattr(self.client, action_name)
         try:
             resp = await func(request, self.runtime_option)
-        except TeaException as ex:
+        except TeaException as ex:        
             LOG.debug(f'plugin exception: {self.product} {self.endpoint} {api_name} {request.to_map()} {ex.data}')
+            if ignoreException:
+                return ex.data
             raise ex
         if not isinstance(resp, TeaModel):
             LOG.error(f'plugin response: {self.product} {self.endpoint} {api_name} {request.to_map()} {resp}')
