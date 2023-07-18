@@ -63,4 +63,3 @@ class StackTest(Base):
         await self.stacker.get_stacks_price()
         
         TerminalPrinter._display_price(stacker=self.stacker)
-      

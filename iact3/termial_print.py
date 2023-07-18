@@ -158,7 +158,39 @@ class TerminalPrinter:
                 status_reason = textwrap.fill(stack.status_reason, width=line_width_default-16, break_long_words=False, replace_whitespace=True, subsequent_indent=subsequent_indent)
                 status_reason = PrintMsg.text_red_background_write + status_reason.replace('\n', f'{PrintMsg.rst_color}\n{PrintMsg.text_red_background_write}').replace(subsequent_indent,f'{PrintMsg.rst_color}{subsequent_indent}{PrintMsg.text_red_background_write}') + PrintMsg.rst_color
                 LOG.info("{} status reason: {} {}\n".format("\u2517", status_reason, PrintMsg.rst_color))
-  
+    
+    @staticmethod
+    def _display_validation(template_validation: list, test_names: list):
+        if len(test_names) == 0 and len(template_validation) == 1:
+            template_validation = template_validation[0]
+            if "Code" in template_validation:
+                LOG.error(f'status: {PrintMsg.text_red_background_write}{template_validation["Code"]}{PrintMsg.rst_color}')
+                LOG.error(f'status_resaon: {PrintMsg.text_red_background_write}{template_validation["Message"]}{PrintMsg.rst_color}')
+            else:
+                LOG.info("LegalTemplate")
+            return
+        result_list = []
+        for name, validation in zip(test_names,template_validation):
+            result_dict = {
+                "test_name": name,
+                "status": validation["Code"] if "Code" in validation else "LegalTemplate"
+            }
+            if "Code" in validation:
+                result_dict["status_reason"] = validation["Message"]
+            result_list.append(result_dict)
+        tab = tabulate.tabulate(result_list, headers="keys")
+        tab_lines = tab.splitlines() 
+        for i, line in enumerate(tab_lines):
+            if i >= 2 and result_list[i-2]['status'] != 'LegalTemplate':
+                LOG.error(f'{PrintMsg.text_red_background_write}{line}{PrintMsg.rst_color}')    
+            else:
+                LOG.info(line)
+
+       
+
+        
+            
+
 
     @staticmethod
     def _is_test_in_progress(status_dict, status_condition="IN_PROGRESS"):

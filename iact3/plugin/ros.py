@@ -186,3 +186,13 @@ class StackPlugin(ROSPlugin):
         self._convert_parameters(parameters, kwargs)
         result = await self.send_request('GetTemplateEstimateCostRequest', **kwargs)
         return result['Resources']
+    
+    async def validate_template(self, template_body: str = None,
+                                region_id: str = None, template_url: str = None):
+        kwargs = dict(
+            TemplateBody=template_body,
+            TemplateURL=template_url,
+            RegionId=region_id
+        )
+        result = await self.send_request('ValidateTemplateRequest', ignoreException=True, **kwargs)
+        return result
