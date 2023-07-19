@@ -41,13 +41,7 @@ class Validate:
                      regions: str = None):
         
         LOG.info(f'start validating template.')
-        # tests = await StackTest.from_file(
-        #     template=template,
-        #     project_config_file=config_file,
-        #     regions=regions
-        # )
-        results = []
-        test_names = []
+
         args = {}
         if regions:
             args[REGIONS] = regions.split(',')
@@ -59,45 +53,20 @@ class Validate:
             template_config = TemplateConfig(template_location=template)
             template_args = template_config.generate_template_args()
             plugin = StackPlugin(region_id=None, credential=None)
-            results.append(await plugin.validate_template(
-                **template_args
-            ))
         else:
             base_config = BaseConfig.create(
                 project_config_file=config_file or DEFAULT_CONFIG_FILE,
                 args={PROJECT: args},
                 project_path=project_path
             )
-            validate_tasks = []
-            for test_name, test_config in base_config.tests.items():
-                credential = test_config.auth.credential
-                template_config = test_config.template_config
-                template_args = template_config.generate_template_args()
-                plugin = StackPlugin(region_id=None, credential=credential)
-                validate_tasks.append(
-                    asyncio.create_task(plugin.validate_template(
-                        **template_args
-                    )))
-                test_names.append(test_name)
-            results += await asyncio.gather(*validate_tasks)
+            test_config = base_config.tests.pop(next(iter(base_config.tests)))
 
-        TerminalPrinter._display_validation(template_validation=results, test_names=test_names)    
+            credential = test_config.auth.credential
+            template_config = test_config.template_config
+            template_args = template_config.generate_template_args()
+            plugin = StackPlugin(region_id=None, credential=credential)
 
-        
-        
-        
-
-        # await StackTest.get_stacks_price(tests)
-
-
-        # args = {}
-        # args["template_config"] = {"template_config": template}
-        # merged_test_configs = {
-        #     key: cls.merge(merged_project_config, value) for key, value in config.get(TESTS, {}).items()
-        # }
-        # debug = BaseConfig.from_dict({
-        #     "TESTS": args
-        # })
-        # debug2 = 0
-
-        # await StackTest.validate_templates(tests)
+        template_validation = await plugin.validate_template(
+                **template_args
+            )
+        TerminalPrinter._display_validation(template_validation=template_validation)    
