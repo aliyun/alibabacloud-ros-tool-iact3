@@ -40,8 +40,6 @@ class Validate:
                      config_file: str = None,
                      regions: str = None):
         
-        LOG.info(f'start validating template.')
-
         args = {}
         if regions:
             args[REGIONS] = regions.split(',')
@@ -65,6 +63,8 @@ class Validate:
             template_config = test_config.template_config
             template_args = template_config.generate_template_args()
             plugin = StackPlugin(region_id=None, credential=credential)
+        
+        LOG.info(f'start validating template.')
 
         template_validation = await plugin.validate_template(
                 **template_args

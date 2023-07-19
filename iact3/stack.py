@@ -121,6 +121,15 @@ class Stacker:
         ]
         self.stacks += await asyncio.gather(*stack_tasks)
 
+    async def preview_stacks_result(self):
+        if self.stacks:
+            raise Iact3Exception('Stacker already initialised with stack objects')
+        self.tags.update(self._sys_tags)
+        stack_tasks = [
+            asyncio.create_task(Stack.preview_stack_result(test, self.tags, self.uid)) for test in self.tests
+        ]
+        self.stacks += await asyncio.gather(*stack_tasks)
+
 def criteria_matches(kwargs: dict, instance):
     for k in kwargs:
         if not hasattr(instance, k):
@@ -216,7 +225,8 @@ class Stack:
 
     def __init__(self, region: str, stack_id: str, test_name: str = None,
                  uuid: UUID = None, status_reason: str = None, stack_name: str = None,
-                 parameters: dict = None, credential: CredentialClient = None, template_price: dict = None):
+                 parameters: dict = None, credential: CredentialClient = None, 
+                 template_price: dict = None, preview_result: dict = None):
         self.test_name: str = test_name
         self.uuid: UUID = uuid if uuid else uuid4()
         self.id: str = stack_id
@@ -234,6 +244,7 @@ class Stack:
         self._last_resource_refresh: datetime = datetime.fromtimestamp(0)
         self.timer = Timer(self.auto_refresh_interval.total_seconds(), self.refresh)
         self.template_price = template_price
+        self.preview_result = preview_result
 
     def __str__(self):
         return self.id
@@ -360,6 +371,47 @@ class Stack:
         stack_id = None
         stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
                     parameters=parameters, credential=credential, template_price=template_price)
+        return stack
+    
+    @classmethod
+    async def preview_stack_result(cls, test: TestConfig, tags: dict = None, uuid: UUID = None):
+        parameters = test.parameters
+        template_args = test.template_config.to_dict()
+        name = test.test_name
+        if not tags:
+            tags = {}
+        tags.update({f'{IAC_NAME}-test-name': name})
+        region = test.region
+        credential = test.auth.credential
+        plugin = StackPlugin(region_id=test.region, credential=credential)
+        stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
+        config_error = test.error
+        if config_error:
+            stack = cls(region, None, name, uuid,
+                        status_reason=getattr(config_error, 'message', 'Unknown error'),
+                        stack_name=stack_name, credential=credential)
+            stack.status = getattr(config_error, 'code', 'Unknown error')
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        try:
+            preview_result = await plugin.preview_stack(
+                parameters=parameters,
+                **template_args,
+                region_id=region,
+                stack_name=stack_name
+            )
+        except TeaException as ex:
+            stack_id = None
+            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
+                        stack_name=stack_name, parameters=parameters, credential=credential)
+            stack.status = ex.code
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        stack_id = None
+        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
+                    parameters=parameters, credential=credential, preview_result=preview_result)
         return stack
 
     async def refresh(self, properties: bool = True, events: bool = False, resources: bool = False) -> None:

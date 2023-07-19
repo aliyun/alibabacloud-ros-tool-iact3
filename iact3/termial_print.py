@@ -131,7 +131,7 @@ class TerminalPrinter:
                     
                 tab = tabulate.tabulate(price_detail, headers="keys")
                 tab_lines = tab.splitlines() 
-                tab_width = len(tab_lines[0])
+                tab_width = len(tab_lines[1])
 
                 test_name = test_name.ljust(int(tab_width/2) + int(len(test_name)/2) + 1, "\u2501")
                 test_name = test_name.rjust(tab_width + 2, "\u2501")
@@ -172,6 +172,60 @@ class TerminalPrinter:
                 LOG.error(f'{PrintMsg.text_red_background_write}{line}{PrintMsg.rst_color}')    
             else:
                 LOG.info(line)
+
+    @staticmethod
+    def _display_preview_resources(stacker):
+        line_width_default = 90
+        for stack in stacker.stacks:
+            test_name = f' test_name: {stack.test_name} '
+            if stack.preview_result:
+                resources_details = []
+                for r in stack.preview_result:
+                    resources_json = {
+                        "LogicalResourceId": r["LogicalResourceId"],
+                        "ResourceType": r["ResourceType"][r["ResourceType"].index("::")+2:],
+                    }
+                    # resources_json["RequiredBy"] = textwrap.fill(", ".join(r['RequiredBy']), width=30, 
+                    #                                          break_on_hyphens=True, break_long_words=False)
+                
+                    # properties_str = ", ".join([f"{key}: {value}" for key, value in r["Properties"].items()])  
+                    # resources_json["Properties"] = textwrap.fill(properties_str, width=100,
+                    #                                          break_long_words=False)
+                    properties_str = json.dumps(r["Properties"], sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
+                    resources_json["Properties"] = properties_str
+                
+                    resources_details.append(resources_json)
+                
+
+                tab = tabulate.tabulate(resources_details, headers="keys")
+                tab_lines = tab.splitlines() 
+                tab_width = len(tab_lines[1])
+
+                test_name = test_name.ljust(int(tab_width/2) + int(len(test_name)/2) + 1, "\u2501")
+                test_name = test_name.rjust(tab_width + 2, "\u2501")
+                
+                LOG.info(f'{PrintMsg.left_top}{PrintMsg.blod}{test_name}{PrintMsg.right_top}{PrintMsg.rst_color}')
+                LOG.info(f'{PrintMsg.left} region: {stack.region.ljust(tab_width-len("region: ")," ")} {PrintMsg.right}')
+                for i, line in enumerate(tab_lines):             
+                    LOG.info(f'{PrintMsg.left if i != len(tab_lines)-1 else PrintMsg.left_bottom} {line.ljust(tab_width," ")} {PrintMsg.right if i != len(tab_lines)-1 else PrintMsg.right_bottom}')
+            else:
+                test_name = test_name.ljust(int(line_width_default/2)+int(len(test_name)/2)-1, PrintMsg.top)
+                test_name = test_name.rjust(line_width_default-1 , PrintMsg.top)
+                 
+                LOG.info(f'{PrintMsg.left_top}{PrintMsg.blod}{test_name}{PrintMsg.right_top}{PrintMsg.rst_color}')
+                LOG.info(f'{PrintMsg.left} region: {stack.region.ljust(line_width_default-len(" region: ")-1," ")}{PrintMsg.right}')
+                LOG.info(
+                    "{} status: {}{}{} ".format(
+                    PrintMsg.left, PrintMsg.text_red_background_write, 
+                    (stack.status + PrintMsg.rst_color).ljust(line_width_default-len(" status: ")+len(PrintMsg.rst_color)-1,' '), 
+                    PrintMsg.right
+                ))
+                subsequent_indent = ' ' * 28
+                status_reason = textwrap.fill(stack.status_reason, width=line_width_default-16, break_long_words=False, replace_whitespace=True, subsequent_indent=subsequent_indent)
+                status_reason = PrintMsg.text_red_background_write + status_reason.replace('\n', f'{PrintMsg.rst_color}\n{PrintMsg.text_red_background_write}').replace(subsequent_indent,f'{PrintMsg.rst_color}{subsequent_indent}{PrintMsg.text_red_background_write}') + PrintMsg.rst_color
+                LOG.info("{} status reason: {} {}\n".format(PrintMsg.left_bottom, status_reason, PrintMsg.rst_color))
+    
+               
 
     @staticmethod
     def _is_test_in_progress(status_dict, status_condition="IN_PROGRESS"):
