@@ -23,6 +23,13 @@ class PrintMsg:
     PASS = "{}[PASS   ]{} : ".format(green, rst_color)
     INFO = "{}[INFO   ]{} : ".format(white, rst_color)
     WARNING = "{}[WARN   ]{} : ".format(orange, rst_color)
+    left_top = "\u250f"
+    right_top = "\u2513"
+    left = "\u2523"
+    left_bottom = "\u2517"
+    right = "\u252B"
+    right_bottom = "\u251B"
+    top = "\u2501"
 
 
 class AppFilter(logging.Filter):

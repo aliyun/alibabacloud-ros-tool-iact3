@@ -63,3 +63,17 @@ class StackTest(Base):
         await self.stacker.get_stacks_price()
         
         TerminalPrinter._display_price(stacker=self.stacker)
+    
+    async def preview_stacks_result(self) -> None:
+        '''
+        Preview resources of templates.
+        '''
+        self.stacker = Stacker(
+            self.project_name,
+            self.configs,
+            uid=self.uid
+        )
+        await self.stacker.preview_stacks_result()
+        
+        TerminalPrinter._display_preview_resources(stacker=self.stacker)
+

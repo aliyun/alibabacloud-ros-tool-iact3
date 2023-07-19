@@ -196,3 +196,16 @@ class StackPlugin(ROSPlugin):
         )
         result = await self.send_request('ValidateTemplateRequest', ignoreException=True, **kwargs)
         return result
+    
+    async def preview_stack(self, template_body: str = None,
+                           parameters: dict = None, region_id: str = None,
+                           template_url: str = None, stack_name: str = None):
+        kwargs = dict(
+            TemplateBody=template_body,
+            TemplateURL=template_url,
+            RegionId=region_id,
+            StackName=stack_name
+        )
+        self._convert_parameters(parameters, kwargs)
+        result = await self.send_request('PreviewStackRequest', **kwargs)
+        return result['Stack']['Resources']
