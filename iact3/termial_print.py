@@ -185,18 +185,11 @@ class TerminalPrinter:
                         "LogicalResourceId": r["LogicalResourceId"],
                         "ResourceType": r["ResourceType"][r["ResourceType"].index("::")+2:],
                     }
-                    # resources_json["RequiredBy"] = textwrap.fill(", ".join(r['RequiredBy']), width=30, 
-                    #                                          break_on_hyphens=True, break_long_words=False)
-                
-                    # properties_str = ", ".join([f"{key}: {value}" for key, value in r["Properties"].items()])  
-                    # resources_json["Properties"] = textwrap.fill(properties_str, width=100,
-                    #                                          break_long_words=False)
                     properties_str = json.dumps(r["Properties"], sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
                     resources_json["Properties"] = properties_str
                 
                     resources_details.append(resources_json)
                 
-
                 tab = tabulate.tabulate(resources_details, headers="keys")
                 tab_lines = tab.splitlines() 
                 tab_width = len(tab_lines[1])
@@ -225,7 +218,27 @@ class TerminalPrinter:
                 status_reason = PrintMsg.text_red_background_write + status_reason.replace('\n', f'{PrintMsg.rst_color}\n{PrintMsg.text_red_background_write}').replace(subsequent_indent,f'{PrintMsg.rst_color}{subsequent_indent}{PrintMsg.text_red_background_write}') + PrintMsg.rst_color
                 LOG.info("{} status reason: {} {}\n".format(PrintMsg.left_bottom, status_reason, PrintMsg.rst_color))
     
-               
+    @staticmethod
+    def _display_policies(policies: dict):  
+         LOG.info(json.dumps(policies, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False))
+        # result_json = {}
+        # if "Code" in policies:
+        #     LOG.error(f'error_code: {policies["Code"]}')
+        #     LOG.error(f'reason: {policies["Message"]}')
+        # else:
+        #     result = [
+        #         {
+        #             "Effect": policy["Effect"],
+        #             "Resource": policy["Resource"],
+        #             "Action": json.dumps(policy["Action"], sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
+
+        #         } for policy in policies
+        #     ]
+         
+        #     tab = tabulate.tabulate(result, headers="keys")
+        #     tab_lines = tab.splitlines() 
+        #     for i, line in enumerate(tab_lines):
+                # LOG.info(line)   
 
     @staticmethod
     def _is_test_in_progress(status_dict, status_condition="IN_PROGRESS"):
