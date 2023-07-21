@@ -77,7 +77,7 @@ class ReportBuilder:
                                     with tag("td", "colspan=5"):
                                         text("")
 
-                                LOG.info(f"Reporting on {str(stack.id)}")
+                                LOG.info(f'Start producing test reports for {stack.test_name} in {stack.region}...')
                                 test_name = stack.test_name
                                 status = stack.status
                                 stack_name = stack.name
@@ -123,6 +123,7 @@ class ReportBuilder:
             file_name = self._report_json_name
             with open(str(self._output_file / file_name), 'w', encoding='utf-8') as f:
                 json.dump(json_result, f, ensure_ascii=False)
+            LOG.info(f'The test report has been completed, you can view it in {self._output_file} directory.')
             return html_output
 
     async def get_events(self, stack: Stack):
