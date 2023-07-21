@@ -13,12 +13,23 @@ class PrintMsg:
     orange = "\x1b[0;30;43m"
     red = "\x1b[0;30;41m"
     rst_color = "\x1b[0m"
+    blod = "\033[1m"
+    text_red = "\033[31m"
+    text_green = "\033[32m"
+    text_red_background_write = "\033[31;47m"
     CRITICAL = "{}[FATAL  ]{} : ".format(red, rst_color)
     ERROR = "{}[ERROR  ]{} : ".format(red, rst_color)
     DEBUG = "{}[DEBUG  ]{} : ".format(aqua, rst_color)
     PASS = "{}[PASS   ]{} : ".format(green, rst_color)
     INFO = "{}[INFO   ]{} : ".format(white, rst_color)
     WARNING = "{}[WARN   ]{} : ".format(orange, rst_color)
+    left_top = "\u250f"
+    right_top = "\u2513"
+    left = "\u2523"
+    left_bottom = "\u2517"
+    right = "\u252B"
+    right_bottom = "\u251B"
+    top = "\u2501"
 
 
 class AppFilter(logging.Filter):

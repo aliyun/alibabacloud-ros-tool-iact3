@@ -1,11 +1,17 @@
 import logging
+import json
 
 from iact3.exceptions import InvalidActionError
 from iact3.stack import Stacker
 from iact3.testing.base import Base
 
+from typing import Any, Type, TypeVar, List
+
+from iact3.termial_print import TerminalPrinter
+
 LOG = logging.getLogger(__name__)
 
+T = TypeVar("T", bound="Test")
 
 class StackTest(Base):
 
@@ -44,3 +50,30 @@ class StackTest(Base):
             raise InvalidActionError(
                 f"One or more stacks failed to create: {status['FAILED']}"
             )
+
+    async def get_stacks_price(self) -> None:
+        '''
+        Get price of templates.
+        '''
+        self.stacker = Stacker(
+            self.project_name,
+            self.configs,
+            uid=self.uid
+        )
+        await self.stacker.get_stacks_price()
+        
+        TerminalPrinter._display_price(stacker=self.stacker)
+    
+    async def preview_stacks_result(self) -> None:
+        '''
+        Preview resources of templates.
+        '''
+        self.stacker = Stacker(
+            self.project_name,
+            self.configs,
+            uid=self.uid
+        )
+        await self.stacker.preview_stacks_result()
+        
+        TerminalPrinter._display_preview_resources(stacker=self.stacker)
+

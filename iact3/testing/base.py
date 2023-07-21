@@ -79,7 +79,7 @@ class Base(metaclass=abc.ABCMeta):
             project_path = DEFAULT_PROJECT_ROOT
             if template:
                 args[TEMPLATE_CONFIG] = {TEMPLATE_LOCATION: template}
-
+        
         base_config = BaseConfig.create(
             project_config_file=project_config_file or DEFAULT_CONFIG_FILE,
             args={PROJECT: args},
@@ -97,13 +97,13 @@ class Base(metaclass=abc.ABCMeta):
                    oss_config=base_config.project.oss_config,
                    auth=base_config.general.auth)
 
-    async def report(self, output_directory, project_path=None):
+    async def report(self, output_directory, project_path=None, log_format=None):
         project_root = Path(project_path).expanduser().resolve() if project_path else DEFAULT_PROJECT_ROOT
         output_directory = output_directory or DEFAULT_OUTPUT_DIRECTORY
         report_path = project_root / output_directory
         report_path.mkdir(exist_ok=True)
         reporter = ReportBuilder(self.stacker, report_path)
-        file_names = await reporter.create_logs()
+        file_names = await reporter.create_logs(log_format)
         index = await reporter.generate_report()
         self._upload_to_oss(report_path, index, file_names)
 

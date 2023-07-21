@@ -111,7 +111,24 @@ class Stacker:
             asyncio.create_task(Stack.delete(stack)) for stack in stacks
         ]
         await asyncio.gather(*stack_tasks)
+    
+    async def get_stacks_price(self):
+        if self.stacks:
+            raise Iact3Exception('Stacker already initialised with stack objects')
+        self.tags.update(self._sys_tags)
+        stack_tasks = [
+            asyncio.create_task(Stack.get_price(test, self.tags, self.uid)) for test in self.tests
+        ]
+        self.stacks += await asyncio.gather(*stack_tasks)
 
+    async def preview_stacks_result(self):
+        if self.stacks:
+            raise Iact3Exception('Stacker already initialised with stack objects')
+        self.tags.update(self._sys_tags)
+        stack_tasks = [
+            asyncio.create_task(Stack.preview_stack_result(test, self.tags, self.uid)) for test in self.tests
+        ]
+        self.stacks += await asyncio.gather(*stack_tasks)
 
 def criteria_matches(kwargs: dict, instance):
     for k in kwargs:
@@ -188,16 +205,17 @@ class Resource:
         self.uuid: UUID = uuid
         self.logical_id: str = resource_dict['LogicalResourceId']
         self.type: str = resource_dict['ResourceType']
-        self.status: str = resource_dict['ResourceStatus']
+        # self.status: str = resource_dict['ResourceStatus']
+        self.status: str = resource_dict['Status']
         self.physical_id: str = ''
         self.last_updated_timestamp: datetime = datetime.fromtimestamp(0)
         self.status_reason: str = ''
         if 'PhysicalResourceId' in resource_dict.keys():
             self.physical_id = resource_dict['PhysicalResourceId']
-        if 'LastUpdatedTimestamp' in resource_dict.keys():
-            self.last_updated_timestamp = resource_dict['LastUpdatedTimestamp']
-        if 'ResourceStatusReason' in resource_dict.keys():
-            self.status_reason = resource_dict['ResourceStatusReason']
+        if 'UpdateTime' in resource_dict.keys():
+            self.last_updated_timestamp = resource_dict['UpdateTime']
+        if 'StatusReason' in resource_dict.keys():
+            self.status_reason = resource_dict['StatusReason']
 
     def __str__(self):
         return '<Resource {} {}>'.format(self.logical_id, self.status)
@@ -207,7 +225,8 @@ class Stack:
 
     def __init__(self, region: str, stack_id: str, test_name: str = None,
                  uuid: UUID = None, status_reason: str = None, stack_name: str = None,
-                 parameters: dict = None, credential: CredentialClient = None):
+                 parameters: dict = None, credential: CredentialClient = None, 
+                 template_price: dict = None, preview_result: dict = None):
         self.test_name: str = test_name
         self.uuid: UUID = uuid if uuid else uuid4()
         self.id: str = stack_id
@@ -224,6 +243,8 @@ class Stack:
         self._last_event_refresh: datetime = datetime.fromtimestamp(0)
         self._last_resource_refresh: datetime = datetime.fromtimestamp(0)
         self.timer = Timer(self.auto_refresh_interval.total_seconds(), self.refresh)
+        self.template_price = template_price
+        self.preview_result = preview_result
 
     def __str__(self):
         return self.id
@@ -312,6 +333,87 @@ class Stack:
         await stack.refresh()
         return stack
 
+    @classmethod
+    async def get_price(cls, test: TestConfig, tags: dict = None, uuid: UUID = None):
+        parameters = test.parameters
+        template_args = test.template_config.to_dict()
+        name = test.test_name
+        if not tags:
+            tags = {}
+        tags.update({f'{IAC_NAME}-test-name': name})
+        region = test.region
+        credential = test.auth.credential
+        plugin = StackPlugin(region_id=test.region, credential=credential)
+        stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
+        config_error = test.error
+        if config_error:
+            stack = cls(region, None, name, uuid,
+                        status_reason=getattr(config_error, 'message', 'Unknown error'),
+                        stack_name=stack_name, credential=credential)
+            stack.status = getattr(config_error, 'code', 'Unknown error')
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        try:
+            template_price = await plugin.get_template_estimate_cost(
+                parameters=parameters,
+                **template_args,
+                region_id=region
+            )
+        except TeaException as ex:
+            stack_id = None
+            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
+                        stack_name=stack_name, parameters=parameters, credential=credential)
+            stack.status = ex.code
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        stack_id = None
+        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
+                    parameters=parameters, credential=credential, template_price=template_price)
+        return stack
+    
+    @classmethod
+    async def preview_stack_result(cls, test: TestConfig, tags: dict = None, uuid: UUID = None):
+        parameters = test.parameters
+        template_args = test.template_config.to_dict()
+        name = test.test_name
+        if not tags:
+            tags = {}
+        tags.update({f'{IAC_NAME}-test-name': name})
+        region = test.region
+        credential = test.auth.credential
+        plugin = StackPlugin(region_id=test.region, credential=credential)
+        stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
+        config_error = test.error
+        if config_error:
+            stack = cls(region, None, name, uuid,
+                        status_reason=getattr(config_error, 'message', 'Unknown error'),
+                        stack_name=stack_name, credential=credential)
+            stack.status = getattr(config_error, 'code', 'Unknown error')
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        try:
+            preview_result = await plugin.preview_stack(
+                parameters=parameters,
+                **template_args,
+                region_id=region,
+                stack_name=stack_name
+            )
+        except TeaException as ex:
+            stack_id = None
+            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
+                        stack_name=stack_name, parameters=parameters, credential=credential)
+            stack.status = ex.code
+            stack._launch_succeeded = False
+            stack.timer.cancel()
+            return stack
+        stack_id = None
+        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
+                    parameters=parameters, credential=credential, preview_result=preview_result)
+        return stack
+
     async def refresh(self, properties: bool = True, events: bool = False, resources: bool = False) -> None:
         if properties:
             await self.set_stack_properties()
@@ -359,7 +461,7 @@ class Stack:
         resources = Resources()
         stack_resources = await self.plugin.list_stack_resources(self.id)
         for res in stack_resources:
-            resources.append(res)
+            resources.append(Resource(self.id,res,self.test_name,self.uuid))
         self._resources = resources
 
     @staticmethod
