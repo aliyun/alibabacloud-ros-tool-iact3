@@ -209,3 +209,11 @@ class StackPlugin(ROSPlugin):
         self._convert_parameters(parameters, kwargs)
         result = await self.send_request('PreviewStackRequest', **kwargs)
         return result['Stack']['Resources']
+    
+    async def generate_template_policy(self, template_body: str = None, template_url: str = None):
+        kwargs = dict(
+            TemplateBody=template_body,
+            TemplateURL=template_url
+        )
+        result = await self.send_request('GenerateTemplatePolicyRequest', ignoreException=True, **kwargs)
+        return result['Policy']
