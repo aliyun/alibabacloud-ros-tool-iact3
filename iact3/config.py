@@ -13,7 +13,7 @@ import yaml
 from alibabacloud_credentials.models import Config
 from dataclasses_jsonschema import JsonSchemaMixin, ValidationError
 
-from iact3.generate_params import ParamGenerator, IAC_NAME
+from iact3.generate_params import ParamGenerator, IAC_NAME, IAC_PACKAGE_NAME
 from iact3.exceptions import Iact3Exception
 from iact3.plugin.base_plugin import CredentialClient
 from iact3.plugin.oss import OssPlugin
