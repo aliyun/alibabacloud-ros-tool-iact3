@@ -18,6 +18,7 @@ from iact3.plugin.vpc import VpcPlugin
 LOG = logging.getLogger(__name__)
 
 IAC_NAME = 'iact3'
+IAC_PACKAGE_NAME = 'alibabacloud-ros-iact3'
 
 
 class Selector:
