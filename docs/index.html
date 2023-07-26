@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="shortcut icon" href="icon/ROS.svg" type="image/x-icon">
+  <title>Iact3</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'ROS Tool Iact3',
+      repo: 'aliyun/alibabacloud-ros-tool-iact3',
+      loadSidebar: true,
+      loadNavbar: true,
+      auto2top: true,
+      subMaxLevel: 2,
+      plugins: [
+          function (hook, vm) {
+            hook.beforeEach(function (html) {
+              var url = 'https://github.com/Achillessanger/alibabacloud-ros-tool-iact3/tree/master/docs/' + vm.route.file
+              var editHtml = '[:memo: Edit Document](' + url + ')\n'
+
+              return editHtml
+                + html
+                + '\n\n----\n\n'
+                + '<a href="https://github.com/Achillessanger/alibabacloud-ros-tool-iact3">alibabacloud-ros-tool-iact3</a> Copyright &copy; <a href="https://www.alibabacloud.com/product/ros">ROS</a>. '
+                + 'Powered By <a href="https://github.com/QingWei-Li/docsify" target="_blank">docsify</a>.'
+            })
+          }
+        ]
+    }
+  </script>
+  <!-- Docsify v4 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+</body>
+</html>
