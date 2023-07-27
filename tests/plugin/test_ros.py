@@ -108,3 +108,86 @@ class TestRosPlugin(BaseTest):
     async def test_get_template(self):
         result = await self.plugin.get_template(template_id='fe08e732-0b38-454c-9314-8aa9735cf6bc')
         self._pprint_json(result)
+
+    async def test_get_template_estimate_cost(self):
+        tpl = {
+            'Parameters': {
+                'ZoneId': {'Type': 'String'},
+                'InstanceType': {'Type': 'String'}
+            },
+            'ROSTemplateFormatVersion': '2015-09-01',
+            'Resources': {
+                'ECS': {
+                    'Properties': {
+                        'ZoneId': {'Ref': 'ZoneId'},
+                        'InstanceType': {'Ref': 'InstanceType'},
+                        'ImageId': 'CentOs_7'
+                    },
+                    'Type': 'ALIYUN::ECS::Instance'
+                }
+            }
+        }
+        params = {
+            'InstanceType': 'ecs.g6e.large',
+            'ZoneId': 'cn-hangzhou-h'
+        }
+        region_id = 'cn-hangzhou'
+        result = await self.plugin.get_template_estimate_cost(
+             template_body=json.dumps(tpl), parameters=params, region_id=region_id)
+        self._pprint_json(result)
+
+    async def test_validate_template(self):
+        tpl = {
+            'ROSTemplateFormatVersion': '2015-09-01',
+            'Parameters': {
+                'A': {'Type': 'String'},
+                'B': {'Type': 'Number'}
+            }
+        }
+
+        result = await self.plugin.validate_template(template_body=json.dumps(tpl))
+        self._pprint_json(result)
+
+    async def test_preview_stack(self):
+        tpl = {
+            "ROSTemplateFormatVersion": "2015-09-01",
+            "Resources": {
+                "ElasticIp": {
+                    "Type": "ALIYUN::VPC::EIP",
+                    "Properties": {
+                        "InstanceChargeType": "Postpaid",
+                        "Name": "TestEIP",
+                        "InternetChargeType": "PayByBandwidth",
+                        "Netmode": "public",
+                        "Bandwidth": 5
+                    }
+                }
+            }
+        }
+        params = {}
+        region_id = 'cn-shanghai'
+        result = await self.plugin.preview_stack(
+            stack_name='ros-test-preview', template_body=json.dumps(tpl), parameters=params, region_id=region_id)
+        self._pprint_json(result)
+
+    async def test_generate_template_policy(self):
+        tpl = {
+            'Parameters': {
+                'ZoneId': {'Type': 'String'},
+                'InstanceType': {'Type': 'String'}
+            },
+            'ROSTemplateFormatVersion': '2015-09-01',
+            'Resources': {
+                'ECS': {
+                    'Properties': {
+                        'ZoneId': {'Ref': 'ZoneId'},
+                        'InstanceType': {'Ref': 'InstanceType'},
+                        'ImageId': 'centos_7'
+                    },
+                    'Type': 'ALIYUN::ECS::Instance'
+                }
+            }
+        }
+
+        result = await self.plugin.generate_template_policy(template_body=json.dumps(tpl))
+        self._pprint_json(result)

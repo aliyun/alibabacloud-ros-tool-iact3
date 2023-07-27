@@ -15,7 +15,8 @@ iact3 test run --project-path ./demo
 
 ## Template Test
 ### Cli Command
-The cli is self documenting by using `--help` or `-h`, the most common command is `iact3 test`
+The cli is self documenting by using `--help` or `-h`, the most common command is `iact3 test`.
+ Before testing template, the configuration file needs to be set up correctly. See [configuration docs](./config.md) for more details
 
 ```
 iact3 test -h
