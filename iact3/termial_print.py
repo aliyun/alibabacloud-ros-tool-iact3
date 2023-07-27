@@ -221,24 +221,6 @@ class TerminalPrinter:
     @staticmethod
     def _display_policies(policies: dict):  
          LOG.info(json.dumps(policies, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False))
-        # result_json = {}
-        # if "Code" in policies:
-        #     LOG.error(f'error_code: {policies["Code"]}')
-        #     LOG.error(f'reason: {policies["Message"]}')
-        # else:
-        #     result = [
-        #         {
-        #             "Effect": policy["Effect"],
-        #             "Resource": policy["Resource"],
-        #             "Action": json.dumps(policy["Action"], sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
-
-        #         } for policy in policies
-        #     ]
-         
-        #     tab = tabulate.tabulate(result, headers="keys")
-        #     tab_lines = tab.splitlines() 
-        #     for i, line in enumerate(tab_lines):
-                # LOG.info(line)   
 
     @staticmethod
     def _is_test_in_progress(status_dict, status_condition="IN_PROGRESS"):

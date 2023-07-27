@@ -5,7 +5,7 @@ from pkg_resources import get_distribution
 
 from iact3 import cli_modules
 from iact3.cli import CliCore, GLOBAL_ARGS, _get_log_level
-from iact3.config import IAC_NAME
+from iact3.config import IAC_NAME, IAC_PACKAGE_NAME
 from iact3.logger import init_cli_logger
 from iact3.util import exit_with_code
 
@@ -47,7 +47,7 @@ def _print_tracebacks(log_level):
 
 def get_installed_version():
     try:
-        return get_distribution(IAC_NAME).version
+        return get_distribution(IAC_PACKAGE_NAME).version
     except Exception:
         return '[local source] no pip module installed'
 
