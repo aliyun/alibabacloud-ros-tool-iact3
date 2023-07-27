@@ -283,7 +283,9 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
         tpl_path = result.pop(TEMPLATE_LOCATION, None)
         tpl_item = self._get_template_location(tpl_path)
         if tpl_item is None:
-            raise Iact3Exception(f'failed to retrieve {tpl_path}')
+            msg = f'Could not find template in {tpl_path or DEFAULT_TEMPLATE_PATH} directory' \
+                  f'Template files need end with .template.json or .template.yaml or .template.yml.'
+            raise Iact3Exception(msg)
         elif isinstance(tpl_item, dict):
             result[TEMPLATE_BODY] = json.dumps(tpl_item)
         else:

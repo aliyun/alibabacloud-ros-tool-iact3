@@ -11,7 +11,7 @@ with open("README.md") as fp:
 
 setuptools.setup(
     name="alibabacloud-ros-iact3",
-    version="0.1.1",
+    version="0.1.2",
 
     description="Iact3 is a tool that tests Terraform and ROS(Resource Orchestration Service) templates.",
     long_description=long_description,
