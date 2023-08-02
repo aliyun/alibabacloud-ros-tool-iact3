@@ -1,4 +1,5 @@
 - [README](en/README.md)
-- [Config](en/config.md)
+- [QuickStart](en/quick_start.md)
 - [Installation](en/installation.md)
+- [Config](en/config.md)
 - [Usage](en/usage.md)
