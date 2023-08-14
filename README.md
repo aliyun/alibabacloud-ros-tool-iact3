@@ -219,20 +219,11 @@ You can automatically get the available parameters through the `$[iact3-auto]` p
    5. Satisfying the regularity `r"(\w*)password(_|)(\d*)"` will automatically generate a password.
    6. Satisfying the regularity `r"(\w*)uuid(_|)(\d*)"` will automatically generate an uuid.
 
+# Document
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+Fantastic documentation is available at:
+[English](https://aliyun.github.io/alibabacloud-ros-tool-iact3/#/en) |
+[中文版](https://aliyun.github.io/alibabacloud-ros-tool-iact3).
 
 
 
