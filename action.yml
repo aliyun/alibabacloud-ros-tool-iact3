@@ -1,0 +1,17 @@
+name: 'Iact3 Action'
+description: 'GitHub Action for Alibabacloud Ros Tool Iact3'
+author: 'yunxiu'
+inputs:
+  access_key_id:
+    description: 'ALIBABA_CLOUD_ACCESS_KEY_ID'
+  access_key_secret:
+    description: 'ALIBABA_CLOUD_ACCESS_KEY_SECRET'
+  templates:
+    description: 'test templates path'
+    required: true
+  type:
+    description: 'iact3 subcommand(test/validate)'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
