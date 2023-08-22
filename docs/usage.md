@@ -1,20 +1,22 @@
 # 使用
 
-Iact3 采用与 `git` 类似的 cli 命令结构，使用 `iact3 command [subcommand] --flag` 结构。 Iact3 也可以直接在项目的根目录运行。简单使用方式如下：
+Iact3 采用与 `git` 类似的 cli 命令结构，使用 `iact3 command [subcommand] --flag` 结构。 
+Iact3 可以直接在项目的根目录运行或通过添加项目路径参数在任意位置运行测试。 Iact3最常见的用途是执行模版测试功能，执行此操作的命令如下：
 
-进入项目根目录并使用`command [subcommand]`命令，例如`test run`：
+在项目的根目录运行：
 ```bash
 cd ./demo
 iact3 test run
 ```
-
-或在任意位置通过提供项目路径运行测试
+在任意位置通过项目路径参数运行：
 ```bash
 iact3 test run --project-path ./demo
 ```
 
+可以通过`--help`参数查看iact3支持的命令、子命令和参数详情。
+
 ## 模版测试
-测试项目中的模板和配置是否可以成功创建。
+测试项目中的模板和配置是否可以成功创建。在测试前，需要正确设置配置文件。请参阅[配置文档](./config.md)了解更多详细信息。
 ### 命令
 ```bash
 iact3 test [subcommand] [options]
