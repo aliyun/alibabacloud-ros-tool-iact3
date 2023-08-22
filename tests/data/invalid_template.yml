@@ -1,0 +1,23 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description: Test ECS NatGateway
+Parameters:
+  VPC:
+    AssociationProperty: ALIYUN::ECS::VPC::VPCId
+    Type: String
+    Label:
+      zh-cn: 现有VPC的实例ID
+      en: Existing VPC dInstance ID
+  VSwitch:
+    AssociationProperty: ALIYUN::ECS::VSwitch::VSwitchId
+    Type: String
+    Label:
+      zh-cn: 网络交换机ID
+      en: VSwitch ID
+    AssociationPropertyMetadata:
+      VpcId: VPC
+Outputs:
+  NatGatewayId:
+    Value:
+      Fn::GetAtt:
+        - NatGateway
+        - NatGatewayId

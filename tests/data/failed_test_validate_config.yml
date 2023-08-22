@@ -1,0 +1,8 @@
+project:
+  name: test123
+  regions:
+  - cn-hangzhou
+  template_config:
+    template_url: http://1.yaml
+tests:
+  default: {}
