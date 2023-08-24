@@ -1,0 +1,21 @@
+project:
+#  auth:
+#    name: akProfile
+#    location: ~/.aliyun/config.json
+  name: test-failed-cost
+  regions:
+    - cn-hangzhou
+  template_config:
+     template_url: http://test-yx-hangzhou.oss-cn-hangzhou.aliyuncs.com/ipv4.yaml
+  oss_config: 
+    bucket_name: test-yx-hangzhou
+    bucket_region: cn-hangzhou
+tests:
+  default:
+    parameters:
+      ZoneId: $[iact3-auto]
+      InstanceType: 'ecs.g6e.large'
+      Password: $[iact3-auto]
+      EIPBandwidth: 1
+      EcsSystemDiskCategory: 'cloud_esd'
+
