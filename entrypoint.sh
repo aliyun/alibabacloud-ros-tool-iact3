@@ -15,6 +15,10 @@ if [ "$INPUT_TYPE" = "validate" ]; then
     if [[ "$file" == .DS_Store* ]]; then
       continue
     fi
+    if [[ "$file" != *.yml ]] && [[ "$file" != *.yaml ]] ; then
+      continue
+    fi
+
     echo -e "\n------Testing $file------"
     if [[ "$file" != iact3-config/* ]]; then
       python /iact3.py validate -t "$file"  >> output.txt 2>&1
