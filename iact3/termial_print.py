@@ -92,17 +92,20 @@ class TerminalPrinter:
                     association_prefix = association_product
                     if isinstance(v, dict) and "Result" in v:
                         association_prefix = v["Type"][v["Type"].index("::")+2:] if "Type" in v else association_product
-                        association_price = {
-                            "Type": f'{association_product}-{k}' if not "Type" in v else v["Type"],
-                            "ChargeType": v["Result"]["OrderSupplement"]["ChargeType"],
-                            "PeriodUnit": v["Result"]["OrderSupplement"]["PriceUnit"],
-                            "Quantity": v["Result"]["OrderSupplement"]["Quantity"],
-                            "Currency": v["Result"]["Order"]["Currency"],
-                            "OriginalAmount": v["Result"]["Order"]["OriginalAmount"] if "OriginalAmount" in v["Result"]["Order"] else None,
-                            "DiscountAmount": v["Result"]["Order"]["DiscountAmount"] if "DiscountAmount" in v["Result"]["Order"] else None,
-                            "TradeAmount": v["Result"]["Order"]["TradeAmount"],
-                        }
-                        result.append(association_price)
+                        try:
+                            association_price = {
+                                "Type": f'{association_product}-{k}' if not "Type" in v else v["Type"],
+                                "ChargeType": v["Result"]["OrderSupplement"]["ChargeType"],
+                                "PeriodUnit": v["Result"]["OrderSupplement"]["PriceUnit"],
+                                "Quantity": v["Result"]["OrderSupplement"]["Quantity"],
+                                "Currency": v["Result"]["Order"]["Currency"],
+                                "OriginalAmount": v["Result"]["Order"]["OriginalAmount"] if "OriginalAmount" in v["Result"]["Order"] else None,
+                                "DiscountAmount": v["Result"]["Order"]["DiscountAmount"] if "DiscountAmount" in v["Result"]["Order"] else None,
+                                "TradeAmount": v["Result"]["Order"]["TradeAmount"],
+                            }
+                            result.append(association_price)
+                        except Exception:
+                            pass
                     if isinstance(v, dict):
                         _format_association_price(v, result, association_prefix)
 
@@ -113,19 +116,35 @@ class TerminalPrinter:
             if stack.template_price:
                 price_detail = []
                 for k,v in stack.template_price.items():
-                    resource_price = {
-                        "Resource": k,
-                        "Region": stack.region,
-                        "Type": v["Type"],
-                        "ChargeType": v["Result"]["OrderSupplement"]['ChargeType'],
-                        "PeriodUnit": v["Result"]["OrderSupplement"]['PriceUnit'],
-                        "Quantity": v["Result"]["OrderSupplement"]['Quantity'],
-                        "Currency": v["Result"]["Order"]["Currency"],
-                        "OriginalAmount": v["Result"]["Order"]["OriginalAmount"] if "OriginalAmount" in v["Result"]["Order"] else None,
-                        "DiscountAmount": v["Result"]["Order"]["DiscountAmount"] if "DiscountAmount" in v["Result"]["Order"] else None,
-                        "TradeAmount": v["Result"]["Order"]["TradeAmount"]
-                    }
-                    price_detail.append(resource_price)
+                    try:
+                        resource_price = {
+                            "Resource": k,
+                            "Region": stack.region,
+                            "Type": v["Type"],
+                            "ChargeType": v["Result"]["OrderSupplement"]['ChargeType'],
+                            "PeriodUnit": v["Result"]["OrderSupplement"]['PriceUnit'],
+                            "Quantity": v["Result"]["OrderSupplement"]['Quantity'],
+                            "Currency": v["Result"]["Order"]["Currency"],
+                            "OriginalAmount": v["Result"]["Order"]["OriginalAmount"] if "OriginalAmount" in v["Result"]["Order"] else None,
+                            "DiscountAmount": v["Result"]["Order"]["DiscountAmount"] if "DiscountAmount" in v["Result"]["Order"] else None,
+                            "TradeAmount": v["Result"]["Order"]["TradeAmount"]
+                        }
+                        price_detail.append(resource_price)
+                    except Exception:
+                        resource_price = {
+                            "Resource": k,
+                            "Region": stack.region,
+                            "Type": v["Type"],
+                            "ChargeType": None,
+                            "PeriodUnit": None,
+                            "Quantity": None,
+                            "Currency": None,
+                            "OriginalAmount": None,
+                            "DiscountAmount": None,
+                            "TradeAmount": None
+                        }
+                        price_detail.append(resource_price)
+                        pass
 
                     _format_association_price(v["Result"],price_detail,v["Type"][v["Type"].index("::")+2:])
                     
