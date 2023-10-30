@@ -134,6 +134,7 @@ class ParamGenerator:
         LOG.debug(f'start to generate parameters for {config.test_name}')
         try:
             await pg.resolve_auto_value()
+            LOG.debug(f'resolve auto value result: {pg.parameters}')
             await pg.resolve_auto_key()
             resolved_parameters = ResolvedParameters(config.test_name, config.region, pg.parameters)
             LOG.debug(
@@ -204,6 +205,21 @@ class ParamGenerator:
         self.parameters.update(self._unresolved_parameters)
         return self.parameters
 
+    async def _get_constraints(self, **kwargs):
+        for _ in range(3):
+            constraints = await self.plugin.get_parameter_constraints(**kwargs)
+            behavior = constraints[0].get('Behavior')
+            values = constraints[0].get('AllowedValues')
+            reason = constraints[0].get('BehaviorReason')
+            if behavior == 'QueryError' and reason and 'timeout' in reason:
+                LOG.debug(f'get constraints timeout, {constraints}')
+                continue
+            if behavior == 'NotSupport':
+                return
+            return values
+        else:
+            return 'timeout'
+
     async def _select_value(self, selector: Selector) -> dict:
         key = selector.key
         parameters = selector.parameters
@@ -227,13 +243,12 @@ class ParamGenerator:
             next_selector.allowed_values = []
             return await self._select_value(next_selector)
 
-        constraints = await self.plugin.get_parameter_constraints(
+        values = await self._get_constraints(
             parameters=parameters,
             **self.template_config.to_dict(),
             parameters_key_filter=[key],
             parameters_order=self.parameters_order
         )
-        values = constraints[0].get('AllowedValues')
         if values is None:
             next_selector = selector.next
             self._unresolved_parameters[key] = selector.original_value
@@ -241,6 +256,9 @@ class ParamGenerator:
             if not next_selector:
                 return selector.parameters
             return await self._select_value(next_selector)
+        elif values == 'timeout':
+            msg = f'get constraints timeout for {key} in {self.region} region for {self.config.test_name}'
+            raise Iact3Exception(msg)
         elif not values:
             prev_selector = selector.prev
             if not prev_selector:

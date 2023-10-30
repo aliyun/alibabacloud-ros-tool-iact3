@@ -1,0 +1,50 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Parameters:
+  ZoneId:
+    Type: String
+  DBInstanceClass:
+    Default: mysql.n2m.small.2c
+    Type: String
+  DBPassword:
+    Type: String
+Resources:
+  RdsDBInstance:
+    Type: 'ALIYUN::RDS::DBInstance'
+    Properties:
+      Engine: MySQL
+      Category: HighAvailability
+      DBInstanceStorage: 50
+      MasterUsername: username
+      DBInstanceStorageType: cloud_essd
+      MasterUserPassword:
+        Ref: DBPassword
+      ZoneId:
+        Ref: ZoneId
+      VpcId:
+        Ref: Vpc
+      VSwitchId:
+        Ref: VSwitch
+      MasterUserType: Super
+      EngineVersion: '8.0'
+      DBInstanceClass:
+        Ref: DBInstanceClass
+      SecurityIPList: 0.0.0.0/0
+  Vpc:
+    Type: 'ALIYUN::ECS::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+  VSwitch:
+    Type: 'ALIYUN::ECS::VSwitch'
+    Properties:
+      VpcId:
+        Ref: Vpc
+      CidrBlock: 192.168.0.0/24
+      ZoneId:
+        Ref: ZoneId
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ZoneId
+          - DBInstanceClass
+          - DBPassword
