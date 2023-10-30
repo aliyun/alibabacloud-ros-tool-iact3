@@ -74,3 +74,22 @@ class TestParamGen(BaseTest):
         config.test_name = 'default'
         resolved_parameters = await ParamGenerator.result(config)
         self._pprint_json(resolved_parameters.parameters)
+
+    async def test_generate_parameters_time_out(self):
+        auto = '$[iact3-auto]'
+        tpl_config = TemplateConfig.from_dict({
+            'template_url': f'file://{self.DATA_PATH}/timeout_template.yml'
+        })
+        tpl_args = tpl_config.generate_template_args()
+        config = TestConfig.from_dict({
+            'template_config': tpl_args,
+            'parameters': {
+                'ZoneId': 'cn-hddddd',
+                'DBInstanceClass': auto,
+                'DBPassword': auto
+            }
+        })
+        config.region = self.REGION_ID
+        config.test_name = 'default'
+        resolved_parameters = await ParamGenerator.result(config)
+        self._pprint_json(resolved_parameters.parameters)
