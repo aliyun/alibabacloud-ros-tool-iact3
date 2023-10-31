@@ -1,0 +1,10 @@
+project:
+  name: test-failed-cost
+  regions:
+    - cn-hangzhou
+tests:
+  default:
+    parameters:
+      ZoneId: not-exist
+      DBInstanceClass: $[iact3-auto]
+      DBPassword: $[iact3-auto]

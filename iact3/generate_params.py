@@ -188,7 +188,7 @@ class ParamGenerator:
                 resolved_parameters[key] = original_value
                 continue
 
-            if self.RE_V_AUTO.fullmatch(original_value) or self.RE_K_ZONE_ID.fullmatch(key):
+            if self.RE_V_AUTO.fullmatch(original_value):
                 resolved_parameters[key] = None
                 linked_list.append(key, original_value, parameters=resolved_parameters)
             elif self.RE_V_CURRENT_REGION.fullmatch(original_value):
