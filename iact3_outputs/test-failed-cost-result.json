@@ -1,0 +1,1 @@
+{"Result": "Failed", "Details": [{"TestName": "default", "TestedRegion": "cn-hangzhou", "StackName": "iact3-default-cn-hangzhou-eac0248e", "TestResult": "Iact3Exception", "TestLog": "iact3-default-cn-hangzhou-eac0248e-cn-hangzhou.txt", "Result": "Failed"}]}

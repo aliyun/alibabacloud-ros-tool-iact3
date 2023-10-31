@@ -99,7 +99,6 @@ class Test:
             regions=regions
         )
         Test._get_parameters(tests)
-    
 
     @staticmethod
     def _get_parameters(tests: StackTest):
