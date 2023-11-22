@@ -39,10 +39,23 @@ class AppFilter(logging.Filter):
         return True
 
 
-def init_cli_logger(loglevel=None):
-    log = logging.getLogger(__package__)
+def init_cli_logger(loglevel=None, request_id=None, logger=None):
+    if logger:
+        log = logger
+    else:
+        log = logging.getLogger(__package__)
+
+    if log.hasHandlers():
+        for handler in log.handlers:
+            log.removeHandler(handler)
+
     cli_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(color_loglevel)s%(message)s")
+    fmt = "%(color_loglevel)s%(message)s"
+
+    if request_id:
+        fmt = f"%(asctime)s {request_id} %(color_loglevel)s%(message)s"
+
+    formatter = logging.Formatter(fmt)
     cli_handler.setFormatter(formatter)
     cli_handler.addFilter(AppFilter())
     log.addHandler(cli_handler)
