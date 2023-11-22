@@ -5,7 +5,7 @@ from pkg_resources import get_distribution
 
 from iact3 import cli_modules
 from iact3.cli import CliCore, GLOBAL_ARGS, _get_log_level
-from iact3.config import IAC_NAME, IAC_PACKAGE_NAME
+from iact3.generate_params import IAC_PACKAGE_NAME, IAC_NAME
 from iact3.logger import init_cli_logger
 from iact3.util import exit_with_code
 
@@ -27,6 +27,11 @@ async def run():
         _default_profile = cli.parsed_args.__dict__.get('_profile')
         if _default_profile:
             GLOBAL_ARGS.profile = _default_profile
+
+        _request_id = cli.parsed_args.__dict__.get('_request_id')
+        if _request_id:
+            GLOBAL_ARGS.request_id = _request_id
+            init_cli_logger(request_id=_request_id, logger=LOG)
         await cli.run()
     except Exception as e:
         LOG.error(
