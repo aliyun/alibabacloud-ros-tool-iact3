@@ -28,10 +28,10 @@ async def run():
         if _default_profile:
             GLOBAL_ARGS.profile = _default_profile
 
-        _request_id = cli.parsed_args.__dict__.get('_request_id')
-        if _request_id:
-            GLOBAL_ARGS.request_id = _request_id
-            init_cli_logger(request_id=_request_id, logger=LOG)
+        _log_prefix = cli.parsed_args.__dict__.get('_log_prefix')
+        if _log_prefix:
+            GLOBAL_ARGS.log_prefix = _log_prefix
+            init_cli_logger(log_prefix=_log_prefix, logger=LOG)
         await cli.run()
     except Exception as e:
         LOG.error(

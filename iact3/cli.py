@@ -27,8 +27,6 @@ def _get_log_level(args, exit_func=exit_with_code):
         log_level = 'DEBUG'
     if '-q' in args or '--quiet' in args:
         log_level = 'ERROR'
-    if '--request_id' in args:
-        log_level = 'DEBUG'
     return log_level
 
 
@@ -65,17 +63,17 @@ class GlobalArgs:
             }
         ],
         [
-            ['--request_id'],
+            ['--log-prefix'],
             {
-                'help': 'set the request id used.',
-                'dest': '_request_id'
+                'help': 'set the log prefix.',
+                'dest': '_log_prefix'
             }
         ]
     ]
 
     def __init__(self):
         self._profile = 'default'
-        self._request_id = ''
+        self._log_prefix = ''
 
     @property
     def profile(self):
@@ -86,12 +84,12 @@ class GlobalArgs:
         self._profile = profile
 
     @property
-    def request_id(self):
-        return self._request_id
+    def log_prefix(self):
+        return self._log_prefix
 
-    @request_id.setter
-    def request_id(self, request_id):
-        self._request_id = request_id
+    @log_prefix.setter
+    def log_prefix(self, log_prefix):
+        self._log_prefix = log_prefix
 
 
 GLOBAL_ARGS = GlobalArgs()

@@ -39,7 +39,7 @@ class AppFilter(logging.Filter):
         return True
 
 
-def init_cli_logger(loglevel=None, request_id=None, logger=None):
+def init_cli_logger(loglevel=None, log_prefix=None, logger=None):
     if logger:
         log = logger
     else:
@@ -50,10 +50,10 @@ def init_cli_logger(loglevel=None, request_id=None, logger=None):
             log.removeHandler(handler)
 
     cli_handler = logging.StreamHandler()
-    fmt = "%(color_loglevel)s%(message)s"
+    fmt = "%(asctime)s %(color_loglevel)s%(message)s"
 
-    if request_id:
-        fmt = f"%(asctime)s {request_id} %(color_loglevel)s%(message)s"
+    if log_prefix:
+        fmt = f"%(asctime)s {log_prefix} %(color_loglevel)s%(message)s"
 
     formatter = logging.Formatter(fmt)
     cli_handler.setFormatter(formatter)
