@@ -1,5 +1,5 @@
 aiofiles==22.1.0
-aiohttp==3.8.6
+aiohttp==3.9.0
 aiosignal==1.2.0
 alibabacloud-credentials==0.3.0
 alibabacloud-darabonba-array==0.1.0
