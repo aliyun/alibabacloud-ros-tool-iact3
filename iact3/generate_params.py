@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 import re
@@ -220,7 +221,7 @@ class ParamGenerator:
         else:
             return 'timeout'
 
-    async def _select_value(self, selector: Selector) -> dict:
+    async def _select_value(self, selector: Selector, error_message=None) -> dict:
         key = selector.key
         parameters = selector.parameters
         allowed_values = selector.allowed_values
@@ -236,12 +237,12 @@ class ParamGenerator:
             if index + 1 >= len(allowed_values):
                 prev_selector = selector.prev
                 if not prev_selector:
-                    raise Iact3Exception(error_msg)
-                return await self._select_value(prev_selector)
+                    raise Iact3Exception(error_message or error_msg)
+                return await self._select_value(prev_selector, error_message=error_message)
             selector.current_value = allowed_values[index + 1]
             next_selector.parameters[key] = selector.current_value
             next_selector.allowed_values = []
-            return await self._select_value(next_selector)
+            return await self._select_value(next_selector, error_message=error_message)
 
         values = await self._get_constraints(
             parameters=parameters,
@@ -255,15 +256,19 @@ class ParamGenerator:
             self._linked_list.remove(key)
             if not next_selector:
                 return selector.parameters
-            return await self._select_value(next_selector)
+            return await self._select_value(next_selector, error_message=error_message)
         elif values == 'timeout':
             msg = f'get constraints timeout for {key} in {self.region} region for {self.config.test_name}'
             raise Iact3Exception(msg)
         elif not values:
             prev_selector = selector.prev
             if not prev_selector:
-                raise Iact3Exception(error_msg)
-            return await self._select_value(prev_selector)
+                param = json.dumps({k: v for k, v in parameters.items() if v is not None})
+                msg = (f'no available value found for {key} '
+                       f'based on parameter {param} in {self.region} for {self.config.test_name}')
+                raise Iact3Exception(msg)
+            error_msg = f'no available value found for {key} in {self.region} region for {self.config.test_name}'
+            return await self._select_value(prev_selector, error_message=error_msg)
 
         selector.allowed_values = values
         selector.current_value = values[0]
@@ -272,7 +277,7 @@ class ParamGenerator:
         if not next_selector:
             return selector.parameters
         next_selector.parameters[key] = selector.current_value
-        return await self._select_value(next_selector)
+        return await self._select_value(next_selector, error_message=error_message)
 
     async def _get_parameters_order(self):
         template = await self._get_template_body()

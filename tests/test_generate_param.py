@@ -93,3 +93,29 @@ class TestParamGen(BaseTest):
         config.test_name = 'default'
         resolved_parameters = await ParamGenerator.result(config)
         self._pprint_json(resolved_parameters.parameters)
+
+    async def test_generate_parameters_for_error_log(self):
+        auto = '$[iact3-auto]'
+        tpl_config = TemplateConfig.from_dict({
+            'template_url': f'file://{self.DATA_PATH}/ecs_instance.template.json'
+        })
+        tpl_args = tpl_config.generate_template_args()
+        config = TestConfig.from_dict({
+            'template_config': tpl_args,
+            'parameters': {
+                'ZoneId': auto,
+                'InstanceType': auto,
+                'SystemDiskCategory': 'cloud_ssd',
+                'DataDiskCategory': 'cloud_ssd',
+                'CommonName': auto,
+                'Password': auto,
+                'NetworkType': 'vpc',
+                'InstanceChargeType': 'Postpaid',
+                'AllocatePublicIP': False,
+                'ImageId': 'm-not-exist'
+            }
+        })
+        config.region = self.REGION_ID
+        config.test_name = 'default'
+        resolved_parameters = await ParamGenerator.result(config)
+        self._pprint_json(resolved_parameters.parameters)
