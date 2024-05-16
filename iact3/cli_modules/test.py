@@ -68,12 +68,14 @@ class Test:
             await tests.report(output_directory, project_path, log_format)
 
     @staticmethod
-    async def clean(regions: str = None):
+    @CliCore.longform_param_required('stack_id')
+    async def clean(regions: str = None, stack_id: str = None):
         '''
         Manually clean up the stacks which were created by Iact3
         :param regions: comma separated list of regions to delete from, default will scan all regions
+        :param stack_id: stack_id to delete from, default will scan all regions
         '''
-        await Delete.create(regions)
+        await Delete.create(regions, stack_id=stack_id)
 
     @staticmethod
     async def list(regions: str = None):

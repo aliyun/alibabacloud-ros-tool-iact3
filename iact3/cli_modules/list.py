@@ -30,7 +30,8 @@ class List:
     async def create(cls, regions: str = None,
                      config_file: str = None,
                      project_path: str = None,
-                     tags: dict = None):
+                     tags: dict = None,
+                     stack_id: str = None):
         credential = cls.get_credential(config_file, project_path)
         if regions:
             regions = regions.split(',')
@@ -45,7 +46,7 @@ class List:
         for region in regions:
             stack_plugin = StackPlugin(region_id=region, credential=credential)
             list_tasks.append(
-                asyncio.create_task(stack_plugin.fetch_all_stacks(tags))
+                asyncio.create_task(stack_plugin.fetch_all_stacks(tags, stack_id=stack_id))
             )
         stacks = await asyncio.gather(*list_tasks)
         all_stacks, project_length, test_length, stack_name_length = cls._get_all_stacks(stacks)
