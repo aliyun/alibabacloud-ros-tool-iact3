@@ -18,3 +18,9 @@ class TestRun(BaseTest):
         config_file = os.path.join(self.DATA_PATH, f'.{IAC_NAME}.yml')
         template = os.path.join(self.DATA_PATH, 'simple_template.yml')
         await Test.run(config_file=config_file, template=template)
+
+    async def test_run_with_delete_one_stack(self):
+        config_file = os.path.join(self.DATA_PATH, f'.{IAC_NAME}.yml')
+        template = os.path.join(self.DATA_PATH, 'simple_template.yml')
+        await Test.run(config_file=config_file, template=template, no_delete=True)
+

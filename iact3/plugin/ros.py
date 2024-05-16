@@ -112,8 +112,8 @@ class StackPlugin(ROSPlugin):
         result = await self.send_request('ListStacksRequest', **request_kwargs)
         return result.get('Stacks')
 
-    async def fetch_all_stacks(self, tags):
-        kwargs = {}
+    async def fetch_all_stacks(self, tags, stack_id=None):
+        kwargs = {'StackId': stack_id}
         self._convert_tags(tags, kwargs, tag_key='Tag')
         return await self.fetch_all('ListStacksRequest', kwargs, 'Stacks')
 

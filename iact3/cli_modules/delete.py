@@ -28,9 +28,10 @@ class Delete:
     async def create(cls, regions: str = None,
                      config_file: str = None,
                      project_path: str = None,
-                     tags: dict = None):
+                     tags: dict = None,
+                     stack_id: str = None):
         credential = List.get_credential(config_file, project_path)
-        all_stacks = await List.create(regions, config_file, project_path, tags)
+        all_stacks = await List.create(regions, config_file, project_path, tags, stack_id=stack_id)
         if not all_stacks:
             LOG.info('can not find stack to delete.')
             return

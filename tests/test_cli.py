@@ -13,7 +13,7 @@ class TestConfig(BaseTest):
     async def test_main(self):
         sys.argv = [
             '', 'test', 'run', '--project-path', str(self.DATA_PATH),
-            '-t', 'ecs_instance.template.json', '-c', 'full_config.yml'
+            '-t', 'simple_template.yml', '-c', '.iact3.yml', '--no-delete'
         ]
         await run()
 
@@ -29,6 +29,12 @@ class TestConfig(BaseTest):
         ]
         await run()
 
+    async def test_delete_with_stack_id(self):
+        sys.argv = [
+            '', 'test', 'clean', '--stack-id', 'd5ea4c0f-3ec7-416e-afe7-06d41bdf56ba'
+        ]
+        await run()
+
     async def test_params(self):
         sys.argv = [
             '', 'test', 'run', '--project-path', str(self.DATA_PATH),
@@ -38,7 +44,7 @@ class TestConfig(BaseTest):
 
     async def test_debug(self):
         sys.argv = [
-            '', 'test', 'run', '--project-path', str(self.DATA_PATH),  '-c', 'real.iact3.yml'
+            '', 'test', 'run', '--project-path', str(self.DATA_PATH), '-c', 'real.iact3.yml'
         ]
         await run()
 
@@ -91,7 +97,6 @@ class TestConfig(BaseTest):
         logs = memory_handler.buffer
         self.assertIn("LegalTemplate      Check passed", logs[3].getMessage())
 
-
     async def test_validate_fail(self):
         memory_handler = logging.handlers.MemoryHandler(capacity=10240)
         logger = logging.getLogger()
@@ -104,7 +109,6 @@ class TestConfig(BaseTest):
 
         logs = memory_handler.buffer
         self.assertIn("InvalidTemplate", logs[3].getMessage())
-
 
     async def test_preview(self):
         memory_handler = logging.handlers.MemoryHandler(capacity=10240)
@@ -135,7 +139,6 @@ class TestConfig(BaseTest):
         self.assertIn("StackValidationFailed", logs[3].getMessage())
         self.assertIn("code:", logs[4].getMessage())
 
-
     async def test_policy(self):
         memory_handler = logging.handlers.MemoryHandler(capacity=10240)
         logger = logging.getLogger()
@@ -162,4 +165,3 @@ class TestConfig(BaseTest):
 
         logs = memory_handler.buffer
         self.assertIn("\"Statement\": []", logs[1].getMessage())
-
