@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import json
-import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import logging
 import os
@@ -84,6 +83,7 @@ class ReportBuilder:
                                 status = stack.status
                                 stack_name = stack.name
                                 region = stack.region
+                                stack_id = stack.id
                                 css = "class=test-green" if status == 'CREATE_COMPLETE' else 'class=test-red'
 
                                 with tag("tr"):
@@ -93,7 +93,9 @@ class ReportBuilder:
                                     with tag("td", "class=text-left"):
                                         text(region)
                                     with tag("td", "class=text-left"):
-                                        text(stack_name)
+                                        ref_url = f"https://ros.console.aliyun.com/{region}/stacks/{stack_id}"
+                                        with tag("a", href=ref_url):
+                                            text(stack_name)
                                     with tag("td", css):
                                         text(str(status))
                                     with tag("td", "class=text-left"):
@@ -107,6 +109,7 @@ class ReportBuilder:
                                     'TestName': test_name,
                                     'TestedRegion': region,
                                     'StackName': stack_name,
+                                    'StackId': stack.id,
                                     'TestResult': status,
                                     'TestLog': clog,
                                     'Result': 'Success' if success else 'Failed'
@@ -249,8 +252,6 @@ class ReportBuilder:
                 await self.add_attr_minidom(xml_doc, root, "TestTime", test_time)
             
                 log_output.write(xml_doc.toprettyxml(indent="\t"))
-
-
 
         async with aiofiles.open(str(log_path)+'.txt', "a", encoding="utf-8") as log_output:
             await log_output.write(
