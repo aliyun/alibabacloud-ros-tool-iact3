@@ -130,6 +130,7 @@ class Stacker:
         ]
         self.stacks += await asyncio.gather(*stack_tasks)
 
+
 def criteria_matches(kwargs: dict, instance):
     for k in kwargs:
         if not hasattr(instance, k):
