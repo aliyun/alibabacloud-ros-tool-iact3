@@ -40,6 +40,10 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X ",
     ],
-    scripts=["bin/iact3"],
+    entry_points={
+        "console_scripts": [
+            "iact3 = iact3.__main__:sync_run",
+        ]
+    },
     include_package_data=True
 )

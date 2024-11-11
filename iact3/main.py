@@ -14,6 +14,23 @@ DESCRIPTION = 'Infrastructure as Code Templates Validation Test.'
 DEFAULT_PROFILE = '.'
 
 
+def sync_run():
+    """
+    Run the CLI synchronously.
+    """
+    import asyncio
+    from iact3.exceptions import Iact3Exception
+    if sys.version_info[0] == 3 and sys.version_info[1] >= 7:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run())
+        finally:
+            loop.close()
+    else:
+        raise Iact3Exception("Please use Python 3.7+")
+
+
 async def run():
     signal.signal(signal.SIGINT, _sigint_handler)
     log_level = _setup_logging(sys.argv)

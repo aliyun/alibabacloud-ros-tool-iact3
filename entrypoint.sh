@@ -21,7 +21,7 @@ if [ "$INPUT_TYPE" = "validate" ]; then
 
     echo -e "\n------Testing $file------"
     if [[ "$file" != iact3-config/* ]]; then
-      python /iact3.py validate -t "$file"  >> output.txt 2>&1
+      python -m iact3 validate -t "$file"  >> output.txt 2>&1
       cat output.txt
       if ! grep -q "LegalTemplate" output.txt; then
         pass_test=0
@@ -67,12 +67,12 @@ do
       template_file_path=${template_file_prefix}.yml
       is_test_run=1
       echo "iact3 test run -t $template_file_path -c $file"
-      python /iact3.py test run -t "$template_file_path" -c "$file" > /dev/null
+      python -m iact3 test run -t "$template_file_path" -c "$file" > /dev/null
     elif [ -f ${template_file_prefix}.yaml ]; then
       template_file_path=${template_file_prefix}.yaml
       is_test_run=1
       echo "iact3 test run -t $template_file_path -c $file"
-      python /iact3.py test run -t "$template_file_path" -c "$file" > /dev/null
+      python -m iact3 test run -t "$template_file_path" -c "$file" > /dev/null
     else
       echo "$file has no template file. Skip testing."
     fi
@@ -91,15 +91,15 @@ do
       config_file_path=${config_file_prefix}.yml
       echo "iact3 test run -t $file -c $config_file_path"
       is_test_run=1
-      python /iact3.py test run -t "$file" -c "$config_file_path" > /dev/null
+      python -m iact3 test run -t "$file" -c "$config_file_path" > /dev/null
     elif [ -f ${config_file_prefix}.yaml ]; then
       config_file_path=${config_file_prefix}.yaml
       echo "iact3 test run -t $file -c $config_file_path"
       is_test_run=1
-      python /iact3.py test run -t "$file" -c "$config_file_path" > /dev/null
+      python -m iact3 test run -t "$file" -c "$config_file_path" > /dev/null
     else
       echo "iact3 validate -t $file"
-      python /iact3.py validate -t "$file"  >> output.txt 2>&1
+      python -m iact3 validate -t "$file"  >> output.txt 2>&1
       echo $file
       cat output.txt
       if ! grep -q "LegalTemplate" output.txt; then
