@@ -8,8 +8,8 @@ from urllib.parse import urlparse, parse_qs
 from urllib.request import urlopen
 
 import requests
-import yaml
 
+from iact3.util import yaml, CustomSafeLoader
 from iact3.exceptions import Iact3Exception
 from iact3.plugin.ecs import EcsPlugin
 from iact3.plugin.oss import OssPlugin
@@ -283,7 +283,7 @@ class ParamGenerator:
         template = await self._get_template_body()
         if not template:
             raise Iact3Exception(f'failed to retrieve template by template config {self.template_config}')
-        parsed_tpl = yaml.safe_load(template)
+        parsed_tpl = yaml.load(template, Loader=CustomSafeLoader)
         param_groups = parsed_tpl.get('Metadata', {}).get('ALIYUN::ROS::Interface', {}).get('ParameterGroups', [])
         if not param_groups:
             return

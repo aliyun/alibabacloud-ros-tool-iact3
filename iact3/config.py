@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Mapping, NewType, Optional, Union, TypeVar, 
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-import yaml
+from iact3.util import yaml, CustomSafeLoader
 from alibabacloud_credentials.models import Config
 from dataclasses_jsonschema import JsonSchemaMixin, ValidationError
 
@@ -124,7 +124,7 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
         return hash((self.name, self.location))
 
     @lru_cache
-    def _get_credential(self) -> CredentialClient:
+    def _get_credential(self) -> Union[CredentialClient, None]:
         file_path = Path(self.location).expanduser().resolve() if self.location else DEFAULT_AUTH_FILE
         if not file_path.is_file():
             return
@@ -247,7 +247,7 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
             if not tf_content:
                 return
 
-            common_path = os.path.commonpath(tf_content.keys())
+            common_path = os.path.commonpath(list(tf_content))
             work_space = {
                 p.replace(common_path + '/', ''): value for p, value in tf_content.items()
             }
@@ -294,7 +294,7 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
                 return result
             try:
                 with open(str(file_path), 'r', encoding='utf-8') as file_handle:
-                    tpl_body = yaml.safe_load(file_handle)
+                    tpl_body = yaml.load(file_handle, Loader=CustomSafeLoader)
                     result[TEMPLATE_BODY] = json.dumps(tpl_body)
             except Exception as e:
                 LOG.debug(str(e), exc_info=True)
@@ -378,7 +378,7 @@ class BaseConfig(JsonSchemaMixin):
             return config_dict
         try:
             with open(str(file_path), 'r', encoding='utf-8') as file_handle:
-                config_dict = yaml.safe_load(file_handle)
+                config_dict = yaml.load(file_handle, Loader=CustomSafeLoader)
             if validate:
                 try:
                     cls.from_dict(config_dict)
