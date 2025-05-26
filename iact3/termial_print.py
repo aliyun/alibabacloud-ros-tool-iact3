@@ -78,11 +78,19 @@ class TerminalPrinter:
             LOG.info("{}stack {} {}".format("\u250f ", "\u24c2", final_stack.name))
             LOG.info("{} region: {}".format("\u2523", final_stack.region))
             LOG.info("{} id: {}".format("\u2523", final_stack.id or ''))
-            LOG.info(
-                "{}status: {}{} {}".format(
-                    "\u2517 ", PrintMsg.white, final_stack.status, PrintMsg.rst_color
+            out_puts = final_stack.outputs
+            if out_puts:
+                LOG.info(
+                    "{}status: {}{} {}".format(
+                        "\u2523 ", PrintMsg.white, final_stack.status, PrintMsg.rst_color)
                 )
-            )
+                LOG.info("{}outputs: {}".format("\u2517 ", json.dumps(out_puts)))
+            else:
+                LOG.info(
+                    "{}status: {}{} {}".format(
+                        "\u2517 ", PrintMsg.white, final_stack.status, PrintMsg.rst_color
+                    )
+                )
 
     @staticmethod
     def _display_price(stacker):

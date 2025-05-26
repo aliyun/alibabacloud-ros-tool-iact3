@@ -131,7 +131,8 @@ class ReportBuilder:
             LOG.info(f'The test report has been completed, you can view it in {self._output_file} directory.')
             return html_output
 
-    async def get_events(self, stack: Stack):
+    @staticmethod
+    async def get_events(stack: Stack):
         stack_events = await stack.events(refresh=True)
         events = []
         for event in stack_events:
@@ -149,7 +150,8 @@ class ReportBuilder:
             events.append(event_details)
         return events
 
-    async def get_resources(self, stack: Stack):
+    @staticmethod
+    async def get_resources(stack: Stack):
         stack_resources = await stack.resources(refresh=True)
         resources = []
         for resource in stack_resources:
@@ -166,6 +168,12 @@ class ReportBuilder:
                 resource_details["ResourceStatusReason"] = ""
             resources.append(resource_details)
         return resources
+
+    @staticmethod
+    async def get_outputs(stack: Stack):
+        outputs = stack.outputs or []
+        return outputs
+
 
     async def create_logs(self, log_format:str):
         if log_format:
@@ -208,8 +216,8 @@ class ReportBuilder:
         parameters = stack.parameters
 
         events = await self.get_events(stack) if stack.id else []
-
         resources = await self.get_resources(stack) if stack.id else []
+        outputs = await self.get_outputs(stack) if stack.id else []
 
         if stack.launch_succeeded:
             tested_result = 'Success'
@@ -232,6 +240,7 @@ class ReportBuilder:
                 json_output["Events"] = events
                 json_output["Resources"] = resources
                 json_output["TestTime"] = test_time
+                json_output["Outputs"] = outputs
                 json.dump(json_output, log_output, ensure_ascii=False, indent=4)
                 log_output.close()
         
@@ -250,6 +259,7 @@ class ReportBuilder:
                 await self.add_attr_minidom(xml_doc, root, "Events", events)
                 await self.add_attr_minidom(xml_doc, root, "Resources", resources)
                 await self.add_attr_minidom(xml_doc, root, "TestTime", test_time)
+                await self.add_attr_minidom(xml_doc, root, "Outputs", outputs)
             
                 log_output.write(xml_doc.toprettyxml(indent="\t"))
 
@@ -258,13 +268,12 @@ class ReportBuilder:
                 "------------------------------------------------------------------"
                 "-----------\n"
             )
+            line_flag = "*"*77
+            line_flag = f"{line_flag}\n"
             await log_output.write("Region: " + region + "\n")
             await log_output.write("StackName: " + stack_name + "\n")
             await log_output.write("StackId: " + stack_id + "\n")
-            await log_output.write(
-                "******************************************************************"
-                "***********\n"
-            )
+            await log_output.write(line_flag)
             if parameters:
                 parameters = [
                     dict(
@@ -273,41 +282,24 @@ class ReportBuilder:
                     ) for k, v in parameters.items()
                 ]
                 await log_output.write(tabulate.tabulate(parameters, headers="keys"))
-                await log_output.write(
-                    "\n******************************************************************"
-                    "***********\n"
-                )
+                await log_output.write(f"\n{line_flag}")
             await log_output.write(f"TestedResult: {tested_result}  \n")
             await log_output.write("ResultReason:  \n")
             await log_output.write(textwrap.fill(str(reason), 85) + "\n")
-            await log_output.write(
-                "******************************************************************"
-                "***********\n"
-            )
-            await log_output.write(
-                "******************************************************************"
-                "***********\n"
-            )
+            await log_output.write(line_flag)
+            await log_output.write(line_flag)
             await log_output.write("Events:  \n")
             await log_output.writelines(tabulate.tabulate(events, headers="keys"))
-            await log_output.write(
-                "\n****************************************************************"
-                "*************\n"
-            )
-            await log_output.write(
-                "******************************************************************"
-                "***********\n"
-            )
+            await log_output.write(f"\n{line_flag}")
+            await log_output.write(line_flag)
             await log_output.write("Resources:  \n")
             await log_output.write(tabulate.tabulate(resources, headers="keys"))
-            await log_output.write(
-                "\n****************************************************************"
-                "*************\n"
-            )
-            await log_output.write(
-                "------------------------------------------------------------------"
-                "-----------\n"
-            )
+            await log_output.write(f"\n{line_flag}")
+            await log_output.write(line_flag)
+            await log_output.write("Outputs:  \n")
+            await log_output.write(tabulate.tabulate(outputs, headers="keys"))
+            await log_output.write(f"\n{line_flag}")
+            await log_output.write(line_flag)
             await log_output.write(
                 "Tested on: "
                 + test_time
