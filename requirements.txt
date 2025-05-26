@@ -21,7 +21,7 @@ aliyun-python-sdk-core==2.13.36
 aliyun-python-sdk-kms==2.16.0
 async-timeout==4.0.2
 asynctest==0.13.0
-attrs==22.1.0
+attrs>=22.1.0
 backports.shutil-get-terminal-size==1.0.0
 certifi>=2023.7.22
 charset-normalizer==2.1.1

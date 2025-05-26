@@ -130,6 +130,9 @@ class Stacker:
         ]
         self.stacks += await asyncio.gather(*stack_tasks)
 
+    async def get_stack_outputs(self):
+        return [stack.get_stack_outputs() for stack in self.stacks]
+
 
 def criteria_matches(kwargs: dict, instance):
     for k in kwargs:
@@ -246,6 +249,7 @@ class Stack:
         self.timer = Timer(self.auto_refresh_interval.total_seconds(), self.refresh)
         self.template_price = template_price
         self.preview_result = preview_result
+        self.outputs = None
 
     def __str__(self):
         return self.id
@@ -429,9 +433,15 @@ class Stack:
         props: dict = stack_properties if stack_properties else {}
         if not props:
             if self.id:
-                props = await self.plugin.get_stack(self.id) or {}
+                props = await self.plugin.get_stack(self.id, output_option='Disabled') or {}
         self.status = props.get('Status')
         self.status_reason = props.get('StatusReason')
+
+        outputs_status = ('CREATE_COMPLETE', 'UPDATE_COMPLETE', 'CREATE_FAILED', 'UPDATE_FAILED')
+        if self.status in outputs_status and self.outputs is None:
+            ret = await self.plugin.get_stack(self.id, output_option='Enabled')
+            self.outputs = ret.get('Outputs') or []
+
         if self.status not in StackStatus.IN_PROGRESS:
             self.timer.cancel()
 
