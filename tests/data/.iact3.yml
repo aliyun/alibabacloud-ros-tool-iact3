@@ -15,6 +15,13 @@ tests:
       Key2: aaa
     regions:
     - cn-beijing
+    hooks:
+      hook-pre-create:
+        execute_time: PreCreate
+        execute_command:
+          - echo
+          - $[stack.name]
+          - $[stack.region]
   other:
     parameters:
       Key1: aaa

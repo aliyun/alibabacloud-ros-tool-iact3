@@ -59,6 +59,16 @@ Each configuration file supports three-tier configuration, which includes `gener
 }
 ```
 
+- `hooks`: hooks config. The optional values of `execute_time` are `PreCreate`, `PostCreate`, `PreDelete` and `PostDelete`, respectively representing the commands that need to be executed before, after creation, before deletion and after deletion. If you configure `oss_config` at the same time, the execution results will also be uploaded to the OSS.
+  ```json
+    {
+        "hook-name": {
+            "execute_time": "PreCreate|PostCreate|PreDelete|PostDelete",
+            "execute_command": ["echo", "hello iact3"]
+        }
+    }
+  ```
+
 ## tests configuration item
 
 - `name` Project Name
@@ -76,6 +86,15 @@ Each configuration file supports three-tier configuration, which includes `gener
   "template_version": ""
 }
 ```
+- `hooks`: hooks config. The optional values of `execute_time` are `PreCreate`, `PostCreate`, `PreDelete` and `PostDelete`, respectively representing the commands that need to be executed before, after creation, before deletion and after deletion. If you configure `oss_config` at the same time, the execution results will also be uploaded to the OSS.
+  ```json
+    {
+        "hook-name": {
+            "execute_time": "PreCreate|PostCreate|PreDelete|PostDelete",
+            "execute_command": ["echo", "hello iact3"]
+        }
+    }
+  ```
 
 # Precedence
 

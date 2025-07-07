@@ -58,14 +58,15 @@ class Test:
             project_path=project_path,
             keep_failed=keep_failed,
             dont_wait_for_delete=dont_wait_for_delete,
-            test_names=test_names
+            test_names=test_names,
+            output_directory=output_directory
         )
         if generate_parameters:
             Test._get_parameters(tests)
             return
 
         async with tests:
-            await tests.report(output_directory, project_path, log_format)
+            await tests.report(log_format)
 
     @staticmethod
     @CliCore.longform_param_required('stack_id')

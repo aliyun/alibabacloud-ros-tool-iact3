@@ -3,11 +3,14 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 from functools import reduce, lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, NewType, Optional, Union, TypeVar, Type
 from urllib.parse import urlparse
 from urllib.request import urlopen
+
+import aiofiles
 
 from iact3.util import yaml, CustomSafeLoader
 from alibabacloud_credentials.models import Config
@@ -36,9 +39,9 @@ CONFIG_KEYS = (
 )
 
 METADATA_KEYS = (
-    AUTH, REGIONS, PARAMETERS, TAGS, OSS_CONFIG, TEMPLATE_CONFIG, ROLE_NAME, NAME
+    AUTH, REGIONS, PARAMETERS, TAGS, OSS_CONFIG, TEMPLATE_CONFIG, ROLE_NAME, NAME, HOOKS
 ) = (
-    'auth', 'regions', 'parameters', 'tags', 'oss_config', 'template_config', 'role_name', 'name'
+    'auth', 'regions', 'parameters', 'tags', 'oss_config', 'template_config', 'role_name', 'name', 'hooks'
 )
 
 TEMPLATE_CONFIG_ITEMS = (
@@ -100,6 +103,16 @@ METADATA: Mapping[str, Mapping[str, Any]] = {
     ROLE_NAME: {
         'Description': 'Role name to use while running test.',
         'Examples': ['my-test-role']
+    },
+    HOOKS: {
+        'Description': 'Hooks to run before and after tests.',
+        'Examples': [{
+            'HookName1': {
+                'execute_time': 'PreCreate',
+                'execute_command': 'echo "hello world"',
+                'log_location': 'oss:://my-bucket-name/object-name'
+            }
+        }]
     }
 }
 
@@ -127,14 +140,14 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
     def _get_credential(self) -> Union[CredentialClient, None]:
         file_path = Path(self.location).expanduser().resolve() if self.location else DEFAULT_AUTH_FILE
         if not file_path.is_file():
-            return
+            return None
         try:
             with open(file_path, 'r', encoding='utf-8') as file_handle:
                 config = json.load(file_handle)
             default = config.get('current')
             name = self.name or default
             if not name:
-                return
+                return None
             specified_profile = None
             profiles = config.get('profiles')
             for profile in profiles:
@@ -143,10 +156,10 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
                     break
         except Exception as e:
             LOG.debug(str(e), exc_info=True)
-            return
+            return None
 
         if not specified_profile:
-            return
+            return None
         if specified_profile.get('mode') == 'AK':
             specified_config = Config(
                 type='access_key',
@@ -177,7 +190,7 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
                 role_name=specified_profile.get('ram_role_name')
             )
         else:
-            return
+            return None
         return CredentialClient(config=specified_config)
 
 
@@ -197,8 +210,11 @@ class OssConfig(JsonSchemaMixin, allow_additional_props=False):
     object_prefix: Optional[str] = field(default=None)
     callback_params: Optional[OssCallbackConfig] = field(default_factory=OssCallbackConfig)
 
-    def validate_bucket(self, plugin: OssPlugin):
-        if not plugin.bucket_exist():
+    def __post_init__(self):
+        self.plugin: Optional[OssPlugin] = None
+
+    def validate_bucket(self):
+        if self.plugin is not None and not self.plugin.bucket_exist():
             raise Iact3Exception(f'oss bucket {self.bucket_name} in {self.bucket_region} region is not exist')
 
 
@@ -301,6 +317,58 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
                 raise Iact3Exception(f'can not find a template: {str(e)}')
         return result
 
+class HookExecuteTime(str, Enum):
+    PRE_CREATE = "PreCreate"
+    POST_CREATE = "PostCreate"
+    PRE_DELETE = "PreDelete"
+    POST_DELETE = "PostDelete"
+
+
+@dataclass
+class HookConfig(JsonSchemaMixin, allow_additional_props=False):
+    execute_time: Optional[HookExecuteTime] = field(default=None)
+    execute_command: Optional[List[str]] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.oss_config: Optional[OssConfig] = None
+        self.hook_name: Optional[str] = None
+
+    async def execute(self, report_path, name_prefix: str, uid):
+        LOG.info("start execute %s hook %s." % (self.execute_time.value, self.hook_name))
+        process = await asyncio.create_subprocess_exec(
+            *self.execute_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        stdout_str = stdout.decode(encoding='utf-8') if stdout else None
+        stderr_str = stderr.decode(encoding='utf-8') if stderr else None
+
+        result_name = f"{name_prefix}-{self.hook_name}-{self.execute_time}"
+        file_path = f"{report_path}/{result_name}"
+        async with aiofiles.open(file_path, "w", encoding="utf-8") as f_result:
+            if stdout_str:
+                await f_result.write(stdout_str)
+            elif stderr_str:
+                await f_result.write(stderr_str)
+
+        result = dict(
+            HookName=self.hook_name,
+            ExecuteStatus="Failed" if stderr_str else "Success",
+            ResultFileName=result_name
+        )
+
+        if self.oss_config is not None and self.oss_config.plugin is not None:
+            oss_prefix = self.oss_config.object_prefix or f'{report_path.name}-{uid}'
+            oss_prefix = f'{IAC_NAME}/{oss_prefix}'
+            object_name = f"{oss_prefix}/{name_prefix}-{self.hook_name}-{self.execute_time}"
+            if stdout_str:
+                self.oss_config.plugin.put_object_with_string(object_name=object_name, strings=stdout_str)
+            elif stderr_str:
+                self.oss_config.plugin.put_object_with_string(object_name=object_name, strings=stderr_str)
+            result.update(OSSLocation=f'oss://{self.oss_config.bucket_name}/{object_name}')
+
+        return result
 
 @dataclass
 class GeneralConfig(JsonSchemaMixin):
@@ -328,6 +396,8 @@ class ProjectConfig(GeneralConfig):
         default_factory=str, metadata=METADATA[ROLE_NAME])
     template_config: TemplateConfig = field(
         default_factory=TemplateConfig, metadata=METADATA[TEMPLATE_CONFIG])
+    hooks: Optional[Dict[str, HookConfig]] = field(
+        default_factory=dict, metadata=METADATA[HOOKS])
 
 
 @dataclass
@@ -338,6 +408,7 @@ class TestConfig(ProjectConfig):
         self.test_name = None
         self.region = None
         self.error = None
+        self.report_path = None
 
 
 T = TypeVar('T', bound='BaseConfig')
@@ -402,6 +473,16 @@ class BaseConfig(JsonSchemaMixin):
                 raise e
         return config_dict
 
+    @staticmethod
+    def _init_oss_config(base_config):
+        oss_config = base_config.project.oss_config
+        if oss_config.bucket_name and oss_config.bucket_region:
+            oss_config.plugin = OssPlugin(
+                region_id=oss_config.bucket_region,
+                bucket_name=oss_config.bucket_name,
+                credential=base_config.general.auth.credential)
+            oss_config.validate_bucket()
+
     @classmethod
     def create(cls: Type[T],
                global_config_path: Path = GENERAL_CONFIG_FILE,
@@ -424,11 +505,13 @@ class BaseConfig(JsonSchemaMixin):
         merged_test_configs = {
             key: cls.merge(merged_project_config, value) for key, value in config.get(TESTS, {}).items()
         }
-        return cls.from_dict({
+        base_config = cls.from_dict({
             GENERAL: general_config,
             PROJECT: merged_project_config,
             TESTS: merged_test_configs
         })
+        cls._init_oss_config(base_config)
+        return base_config
 
     async def get_all_configs(self, test_names: str = None):
         results = []
@@ -452,15 +535,11 @@ class BaseConfig(JsonSchemaMixin):
                 region_config = TestConfig.from_dict(config.to_dict())
                 region_config.region = region
                 region_config.test_name = name
-                oss_config = region_config.oss_config
-                bucket_name = oss_config.bucket_name
-                if bucket_name:
-                    plugin = OssPlugin(
-                        region_id=region,
-                        bucket_name=bucket_name,
-                        credential=region_config.auth.credential
-                    )
-                    oss_config.validate_bucket(plugin)
+                region_config.oss_config = self.project.oss_config
+                for hook_name, hook_config in region_config.hooks.items():
+                    hook_config.oss_config = self.project.oss_config
+                    hook_config.hook_name = hook_name
+
                 resolved_parameters_task = ParamGenerator.result(region_config)
                 param_tasks.append(asyncio.create_task(resolved_parameters_task))
                 results.append(region_config)

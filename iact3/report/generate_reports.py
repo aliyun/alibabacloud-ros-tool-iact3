@@ -171,8 +171,25 @@ class ReportBuilder:
 
     @staticmethod
     async def get_outputs(stack: Stack):
-        outputs = stack.outputs or []
+        outputs = [
+            {
+                "OutputKey": o["OutputKey"],
+                "OutputValue": o.get("OutputValue"),
+                "Description": o.get("Description")
+            } for o in stack.outputs or []
+        ]
         return outputs
+
+    @staticmethod
+    async def get_hook_result(stack: Stack):
+        return [
+            {
+                "HookName": h["HookName"],
+                "ExecuteStatus": h["ExecuteStatus"],
+                "ResultFileName": h["ResultFileName"],
+                "OSSLocation": h.get("OSSLocation"),
+            } for h in stack.hook_results or []
+        ]
 
 
     async def create_logs(self, log_format:str):
@@ -218,6 +235,7 @@ class ReportBuilder:
         events = await self.get_events(stack) if stack.id else []
         resources = await self.get_resources(stack) if stack.id else []
         outputs = await self.get_outputs(stack) if stack.id else []
+        hook_results = await self.get_hook_result(stack) if stack.id else []
 
         if stack.launch_succeeded:
             tested_result = 'Success'
@@ -229,18 +247,20 @@ class ReportBuilder:
         test_time = datetime.datetime.now().strftime("%A, %d. %B %Y %I:%M%p")
 
         if "json" in log_formats:
-            with open(str(log_path)+'.json', 'w', encoding='utf-8') as log_output:       
-                json_output = {}
-                json_output["Region"] = region
-                json_output["StackName"] = stack_name
-                json_output["StackId"] = stack_id
-                json_output["Parameters"] = parameters
-                json_output["TestedResult"] = tested_result
-                json_output["ResultReason"] = str(reason)
-                json_output["Events"] = events
-                json_output["Resources"] = resources
-                json_output["TestTime"] = test_time
-                json_output["Outputs"] = outputs
+            with open(str(log_path) + '.json', 'w', encoding='utf-8') as log_output:
+                json_output = {
+                    "Region": region,
+                    "StackName": stack_name,
+                    "StackId": stack_id,
+                    "Parameters": parameters,
+                    "TestedResult": tested_result,
+                    "ResultReason": str(reason),
+                    "Events": events,
+                    "Resources": resources,
+                    "TestTime": test_time,
+                    "Outputs": outputs,
+                    "HookLogs": hook_results
+                }
                 json.dump(json_output, log_output, ensure_ascii=False, indent=4)
                 log_output.close()
         
@@ -260,6 +280,7 @@ class ReportBuilder:
                 await self.add_attr_minidom(xml_doc, root, "Resources", resources)
                 await self.add_attr_minidom(xml_doc, root, "TestTime", test_time)
                 await self.add_attr_minidom(xml_doc, root, "Outputs", outputs)
+                await self.add_attr_minidom(xml_doc, root, "HookLogs", hook_results)
             
                 log_output.write(xml_doc.toprettyxml(indent="\t"))
 
@@ -298,6 +319,10 @@ class ReportBuilder:
             await log_output.write(line_flag)
             await log_output.write("Outputs:  \n")
             await log_output.write(tabulate.tabulate(outputs, headers="keys"))
+            await log_output.write(f"\n{line_flag}")
+            await log_output.write(line_flag)
+            await log_output.write("HookLogs:  \n")
+            await log_output.write(tabulate.tabulate(hook_results, headers="keys"))
             await log_output.write(f"\n{line_flag}")
             await log_output.write(line_flag)
             await log_output.write(

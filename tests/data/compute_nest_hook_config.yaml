@@ -1,0 +1,29 @@
+project:
+  name: test_compute_nest
+  regions:
+  - cn-hangzhou
+  oss_config:
+    bucket_name: iactvt-beijing
+    bucket_region: cn-beijing
+    object_prefix: test-compute-nest
+tests:
+  default:
+    parameters:
+      public_api: https://aliyun.com
+      private_api: http://10.0.0.1
+    regions:
+    - cn-beijing
+    hooks:
+      post-create:
+        execute_time: PostCreate
+        execute_command:
+          - sh
+          - data/compute_nest_hook_demo.sh
+          - --stack
+          - $[stack.name]
+          - --region
+          - $[stack.region]
+          - --target
+          - public_api:$[outputs.public_api]
+          - --target
+          - private_api:$[outputs.private_api]

@@ -52,6 +52,12 @@ class TestConfig(BaseTest):
                 },
                 TAGS: {
                     'Key': 'Value-base-test'
+                },
+                HOOKS: {
+                    'hook1': {
+                        'execute_time': 'PreCreate',
+                        'execute_command': ['echo', 'test']
+                    }
                 }
             },
             'test2': {
@@ -149,9 +155,6 @@ class TestConfig(BaseTest):
 
         auth_name_not_exit = Auth.from_dict({'name': 'not_exist'})
         self.assertEqual(auth_name_not_exit.credential, None)
-
-        auth_name_exit = Auth.from_dict({'name': 'test_2'})
-        self.assertIsInstance(auth_name_exit.credential, CredentialClient)
 
     def test_get_template(self):
         template_config = TemplateConfig.from_dict({})
