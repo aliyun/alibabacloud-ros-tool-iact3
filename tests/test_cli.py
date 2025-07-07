@@ -4,7 +4,6 @@ import sys
 from iact3.main import run
 from tests.common import BaseTest
 
-from io import StringIO
 import logging
 import logging.handlers
 
@@ -13,7 +12,14 @@ class TestConfig(BaseTest):
     async def test_main(self):
         sys.argv = [
             '', 'test', 'run', '--project-path', str(self.DATA_PATH),
-            '-t', 'simple_template.yml', '-c', '.iact3.yml', '--no-delete'
+            '-t', 'simple_template.yml', '-c', '.iact3.yml'
+        ]
+        await run()
+
+    async def test_compute_hook_demo(self):
+        sys.argv = [
+            '', 'test', 'run', '--project-path', str(self.DATA_PATH),
+            '-t', 'compute_nest_hook_template.yaml', '-c', 'compute_nest_hook_config.yaml'
         ]
         await run()
 

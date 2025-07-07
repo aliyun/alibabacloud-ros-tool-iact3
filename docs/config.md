@@ -55,6 +55,15 @@ Iact3 可以使用两种配置文件进行测试：
         "template_version": ""
     }
     ```
+- `hooks`: 挂钩配置信息。其中`execute_time`的可选值为`PreCreate`、`PostCreate`、`PreDelete`和`PostDelete`，分别表示创建前、创建后、删除前和删除后需要执的命令。如果您同时配置了`oss_config`，则将执行结果也会上传到 OSS 中。
+  ```json
+    {
+        "hook-name": {
+            "execute_time": "PreCreate|PostCreate|PreDelete|PostDelete",
+            "execute_command": ["echo", "hello iact3"]
+        }
+    }
+  ```
 
 ## tests 配置项
 `tests` 配置项中可以包含：
@@ -73,7 +82,16 @@ Iact3 可以使用两种配置文件进行测试：
         "template_version": ""
     }
     ```
-
+- `hooks`: 挂钩配置信息。其中`execute_time`的可选值为`PreCreate`、`PostCreate`、`PreDelete`和`PostDelete`，分别表示创建前、创建后、删除前和删除后需要执的命令。如果您同时配置了`oss_config`，则将执行结果也会上传到 OSS 中。
+  ```json
+    {
+        "hook-name": {
+            "execute_time": "PreCreate|PostCreate|PreDelete|PostDelete",
+            "execute_command": ["echo", "hello iact3"]
+        }
+    }
+  ```
+  
 ## 优先级
 除`parameters`里的配置外，具有相同键的更具体的配置优先。
 > 这种参数处理方式的原理在于，可以在项目之外的系统级别上对值进行覆盖，这样就可以避免将这些参数添加到源代码项目中。像 VPC 详细信息、密钥对或 API 密钥等账户特定的参数可以在每个主机上定义，从而避免将其添加到源代码控制中。

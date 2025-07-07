@@ -30,7 +30,8 @@ class OssPlugin:
             connect_timeout=30,
             **kwargs)
 
-    def _get_auth(self, cred: CredentialClient = None):
+    @staticmethod
+    def _get_auth(cred: CredentialClient = None):
         cred_client = CredentialClient() if cred is None else cred
         credential = cred_client.cloud_credential
         if isinstance(credential, credentials.AccessKeyCredential):

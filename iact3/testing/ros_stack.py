@@ -1,11 +1,11 @@
 import logging
-import json
 
+from iact3.config import HookExecuteTime
 from iact3.exceptions import InvalidActionError
 from iact3.stack import Stacker
 from iact3.testing.base import Base
 
-from typing import Any, Type, TypeVar, List
+from typing import TypeVar
 
 from iact3.termial_print import TerminalPrinter
 
@@ -19,12 +19,14 @@ class StackTest(Base):
         self.stacker = Stacker(
             self.project_name,
             self.configs,
-            uid=self.uid
+            uid=self.uid,
+            report_path=self.report_path
         )
         await self.stacker.create_stacks()
         await self.printer.report_test_progress(stacker=self.stacker)
         self.passed = True
         self.result = self.stacker.stacks
+        await self.stacker.execute_hooks(execute_time=HookExecuteTime.POST_CREATE)
 
     async def clean_up(self) -> None:
         '''
@@ -39,12 +41,15 @@ class StackTest(Base):
 
         if self.keep_failed:
             kwargs = {'status': ['CREATE_COMPLETE', 'UPDATE_COMPLETE']}
-            await self.stacker.delete_stacks(**kwargs)
+            stacks = self.stacker.stacks.filter(kwargs)
+            await self.stacker.delete_stacks(stacks)
         else:
-            await self.stacker.delete_stacks()
+            stacks = self.stacker.stacks
+            await self.stacker.delete_stacks(stacks)
 
         if not self.dont_wait_for_delete:
             await self.printer.report_test_progress(stacker=self.stacker)
+            await self.stacker.execute_hooks(execute_time=HookExecuteTime.POST_DELETE, stacks=stacks)
         status = self.stacker.status()
         if len(status.get('FAILED', {})) > 0:
             raise InvalidActionError(

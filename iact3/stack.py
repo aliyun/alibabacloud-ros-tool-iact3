@@ -1,13 +1,15 @@
 import asyncio
 import logging
+import re
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, List
 from uuid import UUID, uuid4
 
 from Tea.exceptions import TeaException
 
-from iact3.config import TestConfig, IAC_NAME
+from iact3.config import TestConfig, IAC_NAME, HookExecuteTime
 from iact3.exceptions import Iact3Exception
 from iact3.plugin.ros import StackPlugin
 from iact3.util import generate_client_token_ex
@@ -22,14 +24,14 @@ class Timer:
         self._callback = callback
         self._args = args if args is not None else []
         self._kwargs = kwargs if kwargs is not None else {}
-        self._task = asyncio.ensure_future(self._job())
+        self._task = asyncio.create_task(self._job())
 
     async def _job(self):
         while True:
             try:
                 await self._callback(*self._args, **self._kwargs)
             except Exception as ex:
-                LOG.error(f'an error occurred, {self._callback.__name__}, {ex}')
+                LOG.debug("An error occurred in callback %s: %s", self._callback.__name__, ex)
             await asyncio.sleep(self._interval)
 
     def cancel(self):
@@ -71,7 +73,8 @@ class Stacker:
                  uid: uuid.UUID = NULL_UUID,
                  name_prefix: str = IAC_NAME,
                  tags: dict = None,
-                 stacks: Stacks = None):
+                 stacks: Stacks = None,
+                 report_path: Path = None):
         self.tests = tests or []
         self.project_name = project_name
         self.stack_name_prefix = name_prefix
@@ -83,6 +86,7 @@ class Stacker:
             f'{IAC_NAME}-project-name': self.project_name,
         }
         self._sys_tags.update(SYS_TAGS)
+        self.report_path = report_path
 
     @classmethod
     def from_stacks(cls, stacks: Stacks):
@@ -93,7 +97,7 @@ class Stacker:
             raise Iact3Exception('Stacker already initialised with stack objects')
         self.tags.update(self._sys_tags)
         stack_tasks = [
-            asyncio.create_task(Stack.create(test, self.tags, self.uid)) for test in self.tests
+            asyncio.create_task(Stack.create(test, self.tags, self.uid, self.report_path)) for test in self.tests
         ]
         self.stacks += await asyncio.gather(*stack_tasks)
 
@@ -105,8 +109,10 @@ class Stacker:
             result[StackStatus.curt(status)] = {stack.id: stack.status_reason}
         return result
 
-    async def delete_stacks(self, **kwargs):
-        stacks = self.stacks.filter(kwargs)
+    async def delete_stacks(self, stacks: Stacks=None):
+        if stacks is None:
+            stacks = self.stacks
+        await self.execute_hooks(execute_time=HookExecuteTime.PRE_DELETE, stacks=stacks)
         stack_tasks = [
             asyncio.create_task(Stack.delete(stack)) for stack in stacks
         ]
@@ -132,6 +138,17 @@ class Stacker:
 
     async def get_stack_outputs(self):
         return [stack.get_stack_outputs() for stack in self.stacks]
+
+    async def execute_hooks(self, execute_time, stacks: Stacks=None):
+        exec_stacks = self.stacks if stacks is None else stacks
+        hook_tasks = [
+            asyncio.create_task(stack.execute_hook(
+                execute_time=execute_time,
+                report_path=self.report_path,
+                uid=self.uid
+            )) for stack in [s for s in exec_stacks if s.id is not None]
+        ]
+        return await asyncio.gather(*hook_tasks)
 
 
 def criteria_matches(kwargs: dict, instance):
@@ -227,10 +244,11 @@ class Resource:
 
 class Stack:
 
-    def __init__(self, region: str, stack_id: str, test_name: str = None,
+    def __init__(self, region: str, stack_id: Optional[str], test_name: str = None,
                  uuid: UUID = None, status_reason: str = None, stack_name: str = None,
                  parameters: dict = None, credential: CredentialClient = None, 
-                 template_price: dict = None, preview_result: dict = None):
+                 template_price: dict = None, preview_result: dict = None,
+                 test_config: TestConfig = None, hook_results: list = None):
         self.test_name: str = test_name
         self.uuid: UUID = uuid if uuid else uuid4()
         self.id: str = stack_id
@@ -243,13 +261,15 @@ class Stack:
         self._status: str = ''
         self.status_reason: str = status_reason or ''
         self._launch_succeeded: bool = False
-        self.auto_refresh_interval: timedelta = timedelta(seconds=60)
+        self.auto_refresh_interval: timedelta = timedelta(seconds=5)
         self._last_event_refresh: datetime = datetime.fromtimestamp(0)
         self._last_resource_refresh: datetime = datetime.fromtimestamp(0)
         self.timer = Timer(self.auto_refresh_interval.total_seconds(), self.refresh)
         self.template_price = template_price
         self.preview_result = preview_result
         self.outputs = None
+        self.test_config = test_config
+        self.hook_results = hook_results or []
 
     def __str__(self):
         return self.id
@@ -293,8 +313,70 @@ class Stack:
             credential=credential
         )
 
+    def _replace_output_placeholders(self, text):
+        if self.outputs is None:
+            return text
+
+        outputs = {o['OutputKey']: o['OutputValue'] for o in self.outputs}
+        def replace_match(match):
+            key = match.group(1)
+            return str(outputs.get(key, f"$[outputs.{key}]"))
+
+        pattern = r'\$\[outputs\.([^\]]+)\]'
+        return re.sub(pattern, replace_match, text)
+
+    @staticmethod
+    def _replace_stack_placeholders(text, stack_name, region):
+        result = text
+        if "$[stack.region]" in text:
+            result = text.replace("$[stack.region]", region)
+
+        if "$[stack.name]" in text:
+            result = text.replace("$[stack.name]", stack_name)
+        return result
+
+    async def execute_hook(self, execute_time, report_path, uid):
+        if self.test_config is None:
+            return
+
+        hook_config = self.test_config.hooks
+        for config in hook_config.values():
+            execute_command = config.execute_command or []
+            config.execute_command = [self._replace_output_placeholders(c) for c in execute_command]
+
+        results = await self._execute_hook(
+            execute_time=execute_time,
+            hook_config=self.test_config.hooks,
+            report_path=report_path,
+            stack_name=self.name,
+            uid=uid,
+            region=self.region
+        )
+        if not results:
+            return
+        if not self.hook_results:
+            self.hook_results = results
+        else:
+            self.hook_results.extend(results)
+
     @classmethod
-    async def create(cls, test: TestConfig, tags: dict = None, uuid: UUID = None) -> 'Stack':
+    async def _execute_hook(cls, execute_time, hook_config, report_path, stack_name, uid: UUID, region):
+        if not hook_config or not report_path:
+            return []
+        results = []
+        for name, config in hook_config.items():
+            execute_command = config.execute_command or []
+            config.execute_command = [cls._replace_stack_placeholders(c, stack_name, region) for c in execute_command]
+            if config.execute_time != execute_time:
+                continue
+            result = await config.execute(report_path, stack_name, uid)
+            if result:
+                results.append(result)
+        return results
+
+    @classmethod
+    async def create(cls, test: TestConfig, tags: dict = None, uuid: UUID = None,
+                     report_path: Path = None) -> 'Stack':
         parameters = test.parameters
         template_args = test.template_config.to_dict()
         name = test.test_name
@@ -315,6 +397,9 @@ class Stack:
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
+
+        hook_results = await cls._execute_hook(
+            HookExecuteTime.PRE_CREATE, test.hooks, report_path, stack_name, uid=uuid, region=region)
         try:
             stack_id = await plugin.create_stack(
                 stack_name=stack_name,
@@ -328,13 +413,15 @@ class Stack:
         except TeaException as ex:
             stack_id = None
             stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
-                        stack_name=stack_name, parameters=parameters, credential=credential)
+                        stack_name=stack_name, parameters=parameters, credential=credential,
+                        test_config=test, hook_results=hook_results)
             stack.status = ex.code
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
         stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
-                    parameters=parameters, credential=credential)
+                    parameters=parameters, credential=credential,
+                    test_config=test, hook_results=hook_results)
         await stack.refresh()
         return stack
 

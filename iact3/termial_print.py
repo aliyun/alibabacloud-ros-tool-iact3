@@ -135,7 +135,7 @@ class TerminalPrinter:
                             "Currency": v["Result"]["Order"]["Currency"],
                             "OriginalAmount": v["Result"]["Order"]["OriginalAmount"] if "OriginalAmount" in v["Result"]["Order"] else None,
                             "DiscountAmount": v["Result"]["Order"]["DiscountAmount"] if "DiscountAmount" in v["Result"]["Order"] else None,
-                            "TradeAmount": v["Result"]["Order"]["TradeAmount"]
+                            "TradeAmount": v["Result"]["Order"]["TradeAmount"] if "TradeAmount" in v["Result"]["Order"] else None
                         }
                         price_detail.append(resource_price)
                     except Exception:

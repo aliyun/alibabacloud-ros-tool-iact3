@@ -19,7 +19,7 @@
     "VswitchId": {
       "Type": "String"
     },
-    "CommonName": {
+    "InstanceName": {
       "Type": "String"
     },
     "Password": {
@@ -57,7 +57,7 @@
           "Ref": "VswitchId"
         },
         "InstanceName": {
-          "Ref": "CommonName"
+          "Ref": "InstanceName"
         },
         "InstanceType": {
           "Ref": "InstanceType"

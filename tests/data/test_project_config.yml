@@ -25,3 +25,9 @@ tests:
       - cn-shanghai
       - cn-hangzhou
       - cn-beijing
+    hooks:
+      hook1:
+        execute_time: PreCreate
+        execute_command:
+          - echo
+          - "hook1"

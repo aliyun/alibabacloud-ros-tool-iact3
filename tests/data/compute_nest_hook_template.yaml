@@ -1,9 +1,9 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Parameters:
-  Key1:
+  public_api:
     Type: String
     Default: null
-  Key2:
+  private_api:
     Type: String
     Default: null
 Resources:
@@ -13,9 +13,9 @@ Resources:
       CreateDuration: 2
       DeleteDuration: 2
 Outputs:
-  Key1:
+  public_api:
     Value:
-      Ref: Key1
-  Key2:
+      Ref: public_api
+  private_api:
     Value:
-      Ref: Key2
+      Ref: private_api
