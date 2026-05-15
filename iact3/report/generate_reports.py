@@ -4,6 +4,7 @@ import json
 import xml.dom.minidom as minidom
 import logging
 import os
+import sys
 import textwrap
 import time
 from pathlib import Path
@@ -26,16 +27,26 @@ class ReportBuilder:
         self._stacks = stacks
         self._output_file = output_file
         self._report_json_name = f'{self._stacks.project_name}-result.json'
+        self._css_path = self._resolve_css_path()
+
+    @staticmethod
+    def _resolve_css_path():
+        if getattr(sys, 'frozen', False):
+            css_path = os.path.join(sys._MEIPASS, 'iact3', 'report', 'html.css')
+        else:
+            css_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'html.css')
+        if not os.path.isfile(css_path):
+            raise FileNotFoundError(f'Report CSS file not found: {css_path}')
+        return css_path
 
     async def generate_report(self):
         doc = yattag.Doc()
 
         tag = doc.tag
         text = doc.text
-        dirname = os.path.abspath(os.path.dirname(__file__))
         details = []
         test_result = 'Success'
-        async with aiofiles.open(f'{dirname}/html.css', 'r') as f:
+        async with aiofiles.open(self._css_path, 'r') as f:
             output_css = await f.read()
 
         with tag("html"):

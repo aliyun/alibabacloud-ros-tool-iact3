@@ -1,8 +1,6 @@
 import signal
 import sys
 
-from pkg_resources import get_distribution
-
 from iact3 import cli_modules
 from iact3.cli import CliCore, GLOBAL_ARGS, _get_log_level
 from iact3.generate_params import IAC_PACKAGE_NAME, IAC_NAME
@@ -68,10 +66,17 @@ def _print_tracebacks(log_level):
 
 
 def get_installed_version():
+    from iact3 import __version__
+    if getattr(sys, 'frozen', False):
+        return __version__
     try:
-        return get_distribution(IAC_PACKAGE_NAME).version
+        from importlib.metadata import version, PackageNotFoundError
+        try:
+            return version(IAC_PACKAGE_NAME)
+        except PackageNotFoundError:
+            return __version__
     except Exception:
-        return '[local source] no pip module installed'
+        return __version__
 
 
 def _sigint_handler(signum, frame):
