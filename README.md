@@ -14,3 +14,25 @@ Python 3.7+
 Fantastic documentation is available at:
 [English](https://aliyun.github.io/alibabacloud-ros-tool-iact3/#/en) |
 [中文版](https://aliyun.github.io/alibabacloud-ros-tool-iact3).
+
+# Building Standalone Binary
+
+You can build iact3 as a standalone binary using PyInstaller, which requires no Python installation to run.
+
+## Prerequisites
+
+- Python 3.9+
+- PyInstaller (`pip install pyinstaller==6.11.1`)
+- Project dependencies (`pip install -r requirements.txt`)
+
+## Build
+
+```bash
+python build.py
+```
+
+The binary will be generated at `dist/iact3` (or `dist/iact3.exe` on Windows).
+
+## Pre-built Binaries
+
+Pre-built binaries for Linux (amd64), macOS (amd64/arm64), and Windows (amd64) are available on the [Releases](https://github.com/aliyun/alibabacloud-ros-tool-iact3/releases) page. Download the appropriate binary for your platform and run it directly.

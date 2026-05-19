@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
+import re
 import setuptools
+
+
+def _read_version():
+    with open("iact3/__init__.py") as fp:
+        match = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", fp.read(), re.M)
+        if not match:
+            raise RuntimeError("Unable to find __version__ in iact3/__init__.py")
+        return match.group(1)
+
 
 with open("requirements.txt") as fp:
     requirements = fp.read().splitlines()
@@ -11,7 +21,7 @@ with open("README.md") as fp:
 
 setuptools.setup(
     name="alibabacloud-ros-iact3",
-    version="0.1.12",
+    version=_read_version(),
 
     description="Iact3 is a tool that tests Terraform and ROS(Resource Orchestration Service) templates.",
     long_description=long_description,
