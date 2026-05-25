@@ -35,4 +35,4 @@ The binary will be generated at `dist/iact3` (or `dist/iact3.exe` on Windows).
 
 ## Pre-built Binaries
 
-Pre-built binaries for Linux (amd64), macOS (amd64/arm64), and Windows (amd64) are available on the [Releases](https://github.com/aliyun/alibabacloud-ros-tool-iact3/releases) page. Download the appropriate binary for your platform and run it directly.
+Pre-built binaries for Linux (amd64), macOS (arm64), and Windows (amd64) are available on the [Releases](https://github.com/aliyun/alibabacloud-ros-tool-iact3/releases) page. Download the appropriate binary for your platform and run it directly. (Apple Silicon only; Intel Mac users can install via `pip`.)
