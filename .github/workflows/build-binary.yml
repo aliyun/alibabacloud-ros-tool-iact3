@@ -39,6 +39,12 @@ jobs:
       - name: Build binary
         run: python build.py
 
+      - name: Override version.txt with release tag
+        if: matrix.platform == 'linux-amd64' && github.event_name == 'release'
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          printf '%s' "${tag#v}" > dist/version.txt
+
       - name: Smoke test (Linux/macOS)
         if: runner.os != 'Windows'
         run: dist/iact3 --version
