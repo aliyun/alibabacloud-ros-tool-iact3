@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Build iact3 binary using PyInstaller and package as archive."""
 
+import os
 import platform
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ from pathlib import Path
 from iact3 import __version__
 
 PYINSTALLER_REQUIRED_VERSION = '6.11.1'
+BUILD_VERSION = os.environ.get('IACT3_BUILD_VERSION', '').strip() or __version__
 
 
 def main():
@@ -72,7 +74,7 @@ def main():
     print(f'Archive created: {archive_path} ({archive_size_mb:.1f} MB)')
 
     version_file = dist_dir / 'version.txt'
-    version_file.write_text(__version__)
+    version_file.write_text(BUILD_VERSION)
     print(f'Version file created: {version_file}')
 
 
@@ -89,7 +91,7 @@ def _normalize_arch(machine):
 
 
 def _create_archive(dist_dir, binary_path, system, machine):
-    archive_name = f'iact3-{__version__}-{system}-{machine}'
+    archive_name = f'iact3-{BUILD_VERSION}-{system}-{machine}'
 
     if system == 'windows':
         archive_path = dist_dir / f'{archive_name}.zip'

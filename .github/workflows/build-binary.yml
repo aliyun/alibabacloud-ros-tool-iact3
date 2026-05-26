@@ -36,14 +36,21 @@ jobs:
       - name: Verify fast help stays in sync
         run: python -m unittest tests.test_fast_help_consistency
 
-      - name: Build binary
-        run: python build.py
-
-      - name: Override version.txt with release tag
-        if: matrix.platform == 'linux-amd64' && github.event_name == 'release'
+      - name: Resolve build version
+        id: build_version
+        shell: bash
         run: |
-          tag="${{ github.event.release.tag_name }}"
-          printf '%s' "${tag#v}" > dist/version.txt
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            echo "value=${tag#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build binary
+        env:
+          IACT3_BUILD_VERSION: ${{ steps.build_version.outputs.value }}
+        run: python build.py
 
       - name: Smoke test (Linux/macOS)
         if: runner.os != 'Windows'
