@@ -18,6 +18,11 @@ def exit_with_code(code, msg=""):
     sys.exit(code)
 
 
+def get_program_name(base_name: str = 'iact3') -> str:
+    prefix = os.environ.get('ALIBABA_CLOUD_IACT3_COMPAT_MODE', '').strip()
+    return f'{prefix} {base_name}' if prefix else base_name
+
+
 def make_dir(path, ignore_exists=True):
     path = os.path.abspath(path)
     if ignore_exists and os.path.isdir(path):

@@ -19,7 +19,9 @@ def _fast_version():
 def _fast_help():
     # MAINTENANCE: This help text is a static copy of argparse output for fast startup.
     # When adding/removing commands or global options, update this text AND iact3/cli.py.
-    print("""usage: iact3 [args] <command> [args] [subcommand] [args]
+    from iact3.util import get_program_name
+    prog = get_program_name('iact3')
+    print(f"""usage: {prog} [args] <command> [args] [subcommand] [args]
 
 Infrastructure as Code Templates Validation Test.
 

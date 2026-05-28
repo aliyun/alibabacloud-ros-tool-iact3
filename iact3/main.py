@@ -5,7 +5,7 @@ from iact3 import cli_modules
 from iact3.cli import CliCore, GLOBAL_ARGS, _get_log_level
 from iact3.generate_params import IAC_PACKAGE_NAME, IAC_NAME
 from iact3.logger import init_cli_logger
-from iact3.util import exit_with_code
+from iact3.util import exit_with_code, get_program_name
 
 LOG = init_cli_logger(loglevel="ERROR")
 DESCRIPTION = 'Infrastructure as Code Templates Validation Test.'
@@ -37,7 +37,7 @@ async def run():
         args.append('-h')
     try:
         version = get_installed_version()
-        cli = CliCore(IAC_NAME, cli_modules, DESCRIPTION, version, GLOBAL_ARGS.ARGS)
+        cli = CliCore(get_program_name(IAC_NAME), cli_modules, DESCRIPTION, version, GLOBAL_ARGS.ARGS)
         cli.parse(args)
         _default_profile = cli.parsed_args.__dict__.get('_profile')
         if _default_profile:

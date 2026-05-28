@@ -229,6 +229,7 @@ class CliCore:
 
     def _build_parser(self, description, version):
         parser = CustomParser(
+            prog=self.name,
             description=description,
             usage=self._build_usage(),
             formatter_class=argparse.RawDescriptionHelpFormatter,
