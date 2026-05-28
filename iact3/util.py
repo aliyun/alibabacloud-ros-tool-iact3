@@ -19,7 +19,7 @@ def exit_with_code(code, msg=""):
 
 
 def get_program_name(base_name: str = 'iact3') -> str:
-    prefix = os.environ.get('ALIBABA_CLOUD_CMS_COMPAT_MODE', '').strip()
+    prefix = os.environ.get('ALIBABA_CLOUD_IACT3_COMPAT_MODE', '').strip()
     return f'{prefix} {base_name}' if prefix else base_name
 
 
