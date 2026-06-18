@@ -49,6 +49,7 @@ commands:
   list - List stacks which were created by Iact3 for all regions.
   policy - Get policies of the templates.
   preview - Preview resources of templates.
+  server - Start the iact3 web service for running and viewing tests.
   test - Performs functional tests on IaC templates.
   validate - Validate the templates.""")
 

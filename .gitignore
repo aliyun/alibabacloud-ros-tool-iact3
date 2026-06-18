@@ -11,6 +11,9 @@ dist/
 iact3.egg-info/
 .DS_Store
 /iact3_outputs/
+.iact3/
+.iact3_uploads/
+.iact3_web_settings.json
 /tests/data/iact3_outputs/
 alibabacloud_ros_iact3.egg-info/
 /tests/iact3_outputs/
