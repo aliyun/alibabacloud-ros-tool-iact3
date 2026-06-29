@@ -1,12 +1,11 @@
 import json
+import unittest
 from pathlib import Path
 
 from iact3.logger import init_cli_logger
 
-import asynctest
 
-
-class BaseTest(asynctest.TestCase):
+class BaseTest(unittest.IsolatedAsyncioTestCase):
     REGION_ID = 'cn-shanghai'
 
     DATA_PATH = Path(__file__).parent / 'data'
