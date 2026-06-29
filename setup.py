@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import setuptools
+import sys
 
 
 def _read_version():
@@ -11,8 +12,21 @@ def _read_version():
         return match.group(1)
 
 
-with open("requirements.txt") as fp:
-    requirements = fp.read().splitlines()
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+
+
+with open("pyproject.toml", "rb") as fp:
+    pyproject = tomllib.load(fp)
+
+
+project = pyproject["project"]
+author = project["authors"][0]
 
 
 with open("README.md") as fp:
@@ -20,40 +34,22 @@ with open("README.md") as fp:
 
 
 setuptools.setup(
-    name="alibabacloud-ros-iact3",
+    name=project["name"],
     version=_read_version(),
-
-    description="Iact3 is a tool that tests Terraform and ROS(Resource Orchestration Service) templates.",
+    description=project["description"],
     long_description=long_description,
     long_description_content_type="text/markdown",
-
-    author="AlibabaCloud",
-    packages=[
-        "iact3",
-        "iact3.cli_modules",
-        "iact3.plugin",
-        "iact3.report",
-        "iact3.testing"
-    ],
-
-    install_requires=requirements,
-
-    python_requires=">=3.7",
-    classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Topic :: Software Development :: Libraries",
-        "Topic :: Software Development :: Testing",
-        "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS :: MacOS X ",
-    ],
+    author=author["name"],
+    author_email=author["email"],
+    url=project["urls"]["Homepage"],
+    keywords=project["keywords"],
+    packages=setuptools.find_packages(exclude=["tests*", "build*", "dist*"]),
+    python_requires=project["requires-python"],
+    classifiers=project["classifiers"],
     entry_points={
         "console_scripts": [
             "iact3 = iact3.__main__:sync_run",
         ]
     },
-    include_package_data=True
+    include_package_data=True,
 )

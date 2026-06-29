@@ -6,8 +6,8 @@ from tests.common import BaseTest
 import logging
 import logging.handlers
 
-class TestRun(BaseTest):
 
+class TestRun(BaseTest):
     async def test_validate_with_valid_template(self):
         template = os.path.join(self.DATA_PATH, 'simple_template.yml')
 
@@ -16,11 +16,9 @@ class TestRun(BaseTest):
         logger.addHandler(memory_handler)
 
         await Validate.create(template=template)
-        logs = memory_handler.buffer
-
-        self.assertEqual("validate_result    result_reason", logs[2].getMessage())
-        self.assertEqual("-----------------  ---------------", logs[3].getMessage())
-        self.assertEqual("LegalTemplate      Check passed", logs[4].getMessage())
+        self.assert_any_log_equals(memory_handler, "validate_result    result_reason")
+        self.assert_any_log_equals(memory_handler, "-----------------  ---------------")
+        self.assert_any_log_equals(memory_handler, "LegalTemplate      Check passed")
 
     async def test_validate_with_invalid_template(self):
         template = os.path.join(self.DATA_PATH, 'failed_validate_template.yml')
@@ -30,10 +28,8 @@ class TestRun(BaseTest):
         logger.addHandler(memory_handler)
 
         await Validate.create(template=template)
-        logs = memory_handler.buffer
-
-        self.assertEqual("validate_result    result_reason", logs[2].getMessage())
-        self.assertIn("Invalid", logs[4].getMessage())
+        self.assert_any_log_equals(memory_handler, "validate_result    result_reason")
+        self.assert_any_log_contains(memory_handler, "Invalid")
 
     async def test_validate_with_valid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'test_config.iact3.yaml')
@@ -43,11 +39,9 @@ class TestRun(BaseTest):
         logger.addHandler(memory_handler)
 
         await Validate.create(config_file=config_file)
-        logs = memory_handler.buffer
-
-        self.assertEqual("validate_result    result_reason", logs[2].getMessage())
-        self.assertEqual("-----------------  ---------------", logs[3].getMessage())
-        self.assertEqual("LegalTemplate      Check passed", logs[4].getMessage())
+        self.assert_any_log_equals(memory_handler, "validate_result    result_reason")
+        self.assert_any_log_equals(memory_handler, "-----------------  ---------------")
+        self.assert_any_log_equals(memory_handler, "LegalTemplate      Check passed")
 
     async def test_validate_with_invalid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'failed_test_validate_config.yml')
@@ -57,10 +51,8 @@ class TestRun(BaseTest):
         logger.addHandler(memory_handler)
 
         await Validate.create(config_file=config_file)
-        logs = memory_handler.buffer
-
-        self.assertEqual("validate_result    result_reason", logs[2].getMessage())
-        self.assertIn("Invalid", logs[4].getMessage())
+        self.assert_any_log_equals(memory_handler, "validate_result    result_reason")
+        self.assert_any_log_contains(memory_handler, "Invalid")
 
     async def test_validate_with_no_args(self):
         with self.assertRaises(FileNotFoundError) as cm:

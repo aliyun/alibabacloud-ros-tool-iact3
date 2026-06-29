@@ -74,11 +74,7 @@ class Base:
         :param project_path: root path of the project relative to config file
         '''
         configs = await Base._get_config(regions, config_file, project_path)
-        stacker = Stacker(
-            BASIC_RESOURCE_NAME,
-            configs,
-            uid=uuid.uuid4()
-        )
+        stacker = Stacker(BASIC_RESOURCE_NAME, configs, uid=uuid.uuid4())
         await stacker.create_stacks()
         printer = TerminalPrinter()
         await printer.report_test_progress(stacker=stacker)
@@ -96,7 +92,7 @@ class Base:
 
     @staticmethod
     @CliCore.longform_param_required('project_path')
-    async def list(regions: str = None,  config_file: str = None, project_path: str = None) -> None:
+    async def list(regions: str = None, config_file: str = None, project_path: str = None) -> None:
         '''
         List basic resources for testing
         :param regions: comma separated list of regions to list
@@ -108,9 +104,7 @@ class Base:
     @staticmethod
     async def _get_config(regions: str, config_file: str = None, project_path: str = None):
         credential = List.get_credential(config_file, project_path)
-        kwargs = dict(
-            template_config={'template_body': BASIC_RESOURCE_TEMPLATE}
-        )
+        kwargs = dict(template_config={'template_body': BASIC_RESOURCE_TEMPLATE})
 
         if regions:
             regions = regions.split(',')

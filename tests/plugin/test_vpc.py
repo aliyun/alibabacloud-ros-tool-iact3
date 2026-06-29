@@ -3,7 +3,6 @@ from tests.common import BaseTest
 
 
 class TestVpcPlugin(BaseTest):
-
     def setUp(self) -> None:
         super(TestVpcPlugin, self).setUp()
         self.plugin = VpcPlugin(region_id=self.REGION_ID)

@@ -7,7 +7,6 @@ from tests.common import BaseTest
 
 
 class TestOssPlugin(BaseTest):
-
     def setUp(self) -> None:
         super(TestOssPlugin, self).setUp()
         self.plugin = OssPlugin(region_id=self.REGION_ID, bucket_name='iact3-beijing')
@@ -19,4 +18,3 @@ class TestOssPlugin(BaseTest):
 
     def test_exist(self):
         self.plugin.object_exists('')
-

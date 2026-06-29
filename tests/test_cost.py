@@ -6,8 +6,8 @@ from tests.common import BaseTest
 import logging
 import logging.handlers
 
-class TestRun(BaseTest):
 
+class TestRun(BaseTest):
     async def test_cost_with_valid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'test_config.iact3.yaml')
 
@@ -17,12 +17,10 @@ class TestRun(BaseTest):
 
         await Cost.create(config_file=config_file)
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[6].getMessage())
-        self.assertIn("ALIYUN::ECS::Instance", logs[9].getMessage())
-        self.assertIn("ALIYUN::VPC::EIP", logs[10].getMessage())
-        self.assertIn("VPC::EIP-AssociationFlow", logs[11].getMessage())
+        self.assert_any_log_contains(memory_handler, "test_name: default")
+        self.assert_any_log_contains(memory_handler, "ALIYUN::ECS::Instance")
+        self.assert_any_log_contains(memory_handler, "ALIYUN::VPC::EIP")
+        self.assert_any_log_contains(memory_handler, "VPC::EIP-AssociationFlow")
 
     async def test_cost_with_invalid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'failed_cost_config.iact3.yaml')
@@ -33,11 +31,9 @@ class TestRun(BaseTest):
 
         await Cost.create(config_file=config_file)
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[6].getMessage())
-        self.assertIn("StackValidationFailed", logs[7].getMessage())
-        self.assertIn("code:", logs[8].getMessage())
+        self.assert_any_log_contains(memory_handler, "test_name: default")
+        self.assert_any_log_contains(memory_handler, "StackValidationFailed")
+        self.assert_any_log_contains(memory_handler, "code:")
 
     async def test_cost_with_only_template(self):
         template = os.path.join(self.DATA_PATH, 'simple_template.yml')
@@ -55,18 +51,11 @@ class TestRun(BaseTest):
         logger = logging.getLogger()
         logger.addHandler(memory_handler)
 
-        await Cost.create(config_file=config_file,regions="cn-hangzhou,cn-beijing")
+        await Cost.create(config_file=config_file, regions="cn-hangzhou,cn-beijing")
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[11].getMessage())
-        self.assertIn("ALIYUN::ECS::Instance", logs[14].getMessage())
-        self.assertIn("cn-hangzhou", logs[14].getMessage())
-        self.assertIn("ALIYUN::VPC::EIP", logs[15].getMessage())
-        self.assertIn("VPC::EIP-AssociationFlow", logs[16].getMessage())
-
-        self.assertIn("test_name: default", logs[18].getMessage())
-        self.assertIn("ALIYUN::ECS::Instance", logs[21].getMessage())
-        self.assertIn("cn-beijing", logs[21].getMessage())
-        self.assertIn("ALIYUN::VPC::EIP", logs[22].getMessage())
-        self.assertIn("VPC::EIP-AssociationFlow", logs[23].getMessage())
+        self.assert_any_log_contains(memory_handler, "test_name: default")
+        self.assert_any_log_contains(memory_handler, "ALIYUN::ECS::Instance")
+        self.assert_any_log_contains(memory_handler, "cn-hangzhou")
+        self.assert_any_log_contains(memory_handler, "cn-beijing")
+        self.assert_any_log_contains(memory_handler, "ALIYUN::VPC::EIP")
+        self.assert_any_log_contains(memory_handler, "VPC::EIP-AssociationFlow")

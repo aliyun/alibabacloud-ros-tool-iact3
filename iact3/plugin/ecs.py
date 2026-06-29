@@ -14,21 +14,12 @@ class EcsBasePlugin(TeaSDKPlugin):
         return 'alibabacloud_ecs20140526.models.{}'.format(action_name)
 
     def runtime_kwargs(self):
-        return {
-            'autoretry': True,
-            'max_attempts': 3,
-            'read_timeout': 60000,
-            'connect_timeout': 60000
-        }
+        return {'autoretry': True, 'max_attempts': 3, 'read_timeout': 60000, 'connect_timeout': 60000}
 
 
 class EcsPlugin(EcsBasePlugin):
-
     async def get_security_group(self, vpc_id: str = None, security_group_id: str = None):
-        kwargs = dict(
-            VpcId=vpc_id,
-            SecurityGroupIds=security_group_id
-        )
+        kwargs = dict(VpcId=vpc_id, SecurityGroupIds=security_group_id)
         sgs = await self.fetch_all('DescribeSecurityGroups', kwargs, 'SecurityGroups', 'SecurityGroup')
         for sg in sgs:
             if not sg['ServiceManaged']:

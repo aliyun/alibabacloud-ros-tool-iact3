@@ -18,6 +18,7 @@ def sync_run():
     """
     import asyncio
     from iact3.exceptions import Iact3Exception
+
     if sys.version_info[0] == 3 and sys.version_info[1] >= 7:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -49,9 +50,7 @@ async def run():
             init_cli_logger(log_prefix=_log_prefix, logger=LOG)
         await cli.run()
     except Exception as e:
-        LOG.error(
-            '%s %s', e.__class__.__name__, str(e), exc_info=_print_tracebacks(log_level)
-        )
+        LOG.error('%s %s', e.__class__.__name__, str(e), exc_info=_print_tracebacks(log_level))
         exit_with_code(1)
 
 
@@ -67,10 +66,12 @@ def _print_tracebacks(log_level):
 
 def get_installed_version():
     from iact3 import __version__
+
     if getattr(sys, 'frozen', False):
         return __version__
     try:
         from importlib.metadata import version, PackageNotFoundError
+
         try:
             return version(IAC_PACKAGE_NAME)
         except PackageNotFoundError:

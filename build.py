@@ -27,8 +27,7 @@ def main():
         import PyInstaller
     except ImportError:
         print(
-            f'Error: PyInstaller is required. Install with: '
-            f'pip install pyinstaller=={PYINSTALLER_REQUIRED_VERSION}',
+            f'Error: PyInstaller is required. Install with: pip install pyinstaller=={PYINSTALLER_REQUIRED_VERSION}',
             file=sys.stderr,
         )
         sys.exit(1)
@@ -50,14 +49,20 @@ def main():
     machine = _normalize_arch(platform.machine())
 
     print(f'Building iact3 on {system} {machine}...')
-    subprocess.check_call([
-        sys.executable, '-m', 'PyInstaller',
-        str(spec_file),
-        '--distpath', str(dist_dir),
-        '--workpath', str(build_dir),
-        '--clean',
-        '--noconfirm',
-    ])
+    subprocess.check_call(
+        [
+            sys.executable,
+            '-m',
+            'PyInstaller',
+            str(spec_file),
+            '--distpath',
+            str(dist_dir),
+            '--workpath',
+            str(build_dir),
+            '--clean',
+            '--noconfirm',
+        ]
+    )
 
     binary_name = 'iact3.exe' if system == 'windows' else 'iact3'
     binary_path = dist_dir / binary_name

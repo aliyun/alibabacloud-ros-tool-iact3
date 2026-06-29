@@ -7,65 +7,30 @@ from tests.common import BaseTest
 class TestConfig(BaseTest):
     config_data = {
         GENERAL: {
-            AUTH: {
-                'name': 'my-default-profile',
-                'location': '~/.aliyun/config.json'
-            },
+            AUTH: {'name': 'my-default-profile', 'location': '~/.aliyun/config.json'},
             REGIONS: ['cn-hangzhou', 'cn-shanghai'],
-            PARAMETERS: {
-                'Key1': 'Value1',
-                'Key2': 'Value2',
-                'Tags': [{'Key': 'ros', 'Value': 'xxxx'}]
-            },
-            TAGS: {
-                'Tag1': 'value1',
-                'Tag2': 'value2'
-            },
-            OSS_CONFIG: {
-                'bucket_name': 'example-name',
-                'bucket_region': 'cn-hangzhou'
-            }
+            PARAMETERS: {'Key1': 'Value1', 'Key2': 'Value2', 'Tags': [{'Key': 'ros', 'Value': 'xxxx'}]},
+            TAGS: {'Tag1': 'value1', 'Tag2': 'value2'},
+            OSS_CONFIG: {'bucket_name': 'example-name', 'bucket_region': 'cn-hangzhou'},
         },
         PROJECT: {
             NAME: 'name',
             REGIONS: ['cn-hangzhou', 'cn-beijing'],
-            PARAMETERS: {
-                'Key1': 'Value-new',
-                'Key3': 'value3'
-            },
-            TAGS: {
-                'Tag1': 'value-new',
-                'Tag3': 'value3'
-            },
-            TEMPLATE_CONFIG: {
-                'template_location': 'ros-template/'
-            },
-            ROLE_NAME: 'my-test-role'
+            PARAMETERS: {'Key1': 'Value-new', 'Key3': 'value3'},
+            TAGS: {'Tag1': 'value-new', 'Tag3': 'value3'},
+            TEMPLATE_CONFIG: {'template_location': 'ros-template/'},
+            ROLE_NAME: 'my-test-role',
         },
         TESTS: {
             'test1': {
                 NAME: 'test',
                 REGIONS: ['cn-hangzhou', 'cn-shanghai'],
-                PARAMETERS: {
-                    'Key1': 'Value1-base-test',
-                    'Key2': 'value2-base-test'
-                },
-                TAGS: {
-                    'Key': 'Value-base-test'
-                },
-                HOOKS: {
-                    'hook1': {
-                        'execute_time': 'PreCreate',
-                        'execute_command': ['echo', 'test']
-                    }
-                }
+                PARAMETERS: {'Key1': 'Value1-base-test', 'Key2': 'value2-base-test'},
+                TAGS: {'Key': 'Value-base-test'},
+                HOOKS: {'hook1': {'execute_time': 'PreCreate', 'execute_command': ['echo', 'test']}},
             },
-            'test2': {
-                PARAMETERS: {
-                    'Key4': 'value4'
-                }
-            }
-        }
+            'test2': {PARAMETERS: {'Key4': 'value4'}},
+        },
     }
 
     def test_dataclass_init(self):
@@ -84,32 +49,21 @@ class TestConfig(BaseTest):
             PROJECT: {
                 NAME: 'unit',
                 REGIONS: ['cn-qingdao', 'cn-beijing'],
-                PARAMETERS: {
-                    'Key': 'Value-data1-project',
-                    'Key1': 'Value1-data1-project'
-                },
-                TAGS: {
-                    'Tag1': 'value1-data1-project',
-                    'Tag2': 'value2-data1-project'
-                },
+                PARAMETERS: {'Key': 'Value-data1-project', 'Key1': 'Value1-data1-project'},
+                TAGS: {'Tag1': 'value1-data1-project', 'Tag2': 'value2-data1-project'},
             },
             TESTS: {
                 'test1': {
                     NAME: 'unit1',
                     REGIONS: ['cn-shanghai'],
-                    PARAMETERS: {
-                        'Key1': 'Value1-data1-test',
-                        'Key2': 'value2-data1-test'
-                    },
-                    TAGS: {
-                        'Key': 'Value-data1-test'
-                    }
+                    PARAMETERS: {'Key1': 'Value1-data1-test', 'Key2': 'value2-data1-test'},
+                    TAGS: {'Key': 'Value-data1-test'},
                 },
                 'test3': {
                     NAME: 'unit3',
                     REGIONS: ['cn-shanghai', 'cn-hangzhou', 'cn-beijing'],
-                }
-            }
+                },
+            },
         }
 
         result = BaseConfig.merge(self.config_data, data1)
@@ -129,15 +83,11 @@ class TestConfig(BaseTest):
         args = {
             PROJECT: {
                 REGIONS: ['cn-hangzhou', 'cn-shanghai', 'cn-beijing', 'cn-qingdao'],
-                TEMPLATE_CONFIG: {
-                    'template_location': template_path
-                }
+                TEMPLATE_CONFIG: {'template_location': template_path},
             }
         }
         config = BaseConfig.create(
-            global_config_path=global_config_path,
-            project_config_file=project_config_path,
-            args=args
+            global_config_path=global_config_path, project_config_file=project_config_path, args=args
         )
         self._pprint_json(config.to_dict())
 

@@ -32,88 +32,74 @@ DEFAULT_OUTPUT_DIRECTORY = f'{IAC_NAME}_outputs'
 OVERRIDES = f'.{IAC_NAME}_overrides.yml'
 DEFAULT_AUTH_FILE = Path(f'~/.aliyun/config.json').expanduser().resolve()
 
-CONFIG_KEYS = (
-    GENERAL, PROJECT, TESTS
-) = (
-    'general', 'project', 'tests'
+CONFIG_KEYS = (GENERAL, PROJECT, TESTS) = ('general', 'project', 'tests')
+
+METADATA_KEYS = (AUTH, REGIONS, PARAMETERS, TAGS, OSS_CONFIG, TEMPLATE_CONFIG, ROLE_NAME, NAME, HOOKS) = (
+    'auth',
+    'regions',
+    'parameters',
+    'tags',
+    'oss_config',
+    'template_config',
+    'role_name',
+    'name',
+    'hooks',
 )
 
-METADATA_KEYS = (
-    AUTH, REGIONS, PARAMETERS, TAGS, OSS_CONFIG, TEMPLATE_CONFIG, ROLE_NAME, NAME, HOOKS
-) = (
-    'auth', 'regions', 'parameters', 'tags', 'oss_config', 'template_config', 'role_name', 'name', 'hooks'
+TEMPLATE_CONFIG_ITEMS = (TEMPLATE_BODY, TEMPLATE_URL, TEMPLATE_ID, TEMPLATE_VERSION, TEMPLATE_LOCATION) = (
+    'template_body',
+    'template_url',
+    'template_id',
+    'template_version',
+    'template_location',
 )
 
-TEMPLATE_CONFIG_ITEMS = (
-    TEMPLATE_BODY, TEMPLATE_URL, TEMPLATE_ID, TEMPLATE_VERSION, TEMPLATE_LOCATION
-) = (
-    'template_body', 'template_url', 'template_id', 'template_version', 'template_location'
-)
-
-OSS_CONFIG_ITEMS = (
-    BUCKET_NAME, BUCKET_REGION
-) = (
-    'bucket_name', 'bucket_region'
-)
+OSS_CONFIG_ITEMS = (BUCKET_NAME, BUCKET_REGION) = ('bucket_name', 'bucket_region')
 
 
 METADATA: Mapping[str, Mapping[str, Any]] = {
     AUTH: {
         'Description': 'Aliyun authentication section.',
-        'Examples': [{
-            'name': 'default',
-            'location': '~/.aliyun/config.json'
-        }]
+        'Examples': [{'name': 'default', 'location': '~/.aliyun/config.json'}],
     },
-    REGIONS: {
-        'Description': 'List of aliyun regions.',
-        'Examples': [['cn-hangzhou', 'cn-beijing']]
-    },
+    REGIONS: {'Description': 'List of aliyun regions.', 'Examples': [['cn-hangzhou', 'cn-beijing']]},
     PARAMETERS: {
         'Description': 'Parameter key-values to pass to template.',
-        'Examples': [{
-            'MyParameterKey1': 'MyParameterValue1',
-            'MyParameterKey2': 'MyParameterValue2'
-        }]
+        'Examples': [{'MyParameterKey1': 'MyParameterValue1', 'MyParameterKey2': 'MyParameterValue2'}],
     },
     OSS_CONFIG: {
         'Description': 'Oss bucket configuration, include BucketName, BucketRegion and etc.',
-        'Examples': [{
-            'bucket_name': 'ExampleName',
-            'bucket_region': 'cn-hangzhou'
-        }]
+        'Examples': [{'bucket_name': 'ExampleName', 'bucket_region': 'cn-hangzhou'}],
     },
     TEMPLATE_CONFIG: {
         'Description': 'Oss bucket configuration, include BucketName, BucketRegion and etc.',
-        'Examples': [{
-            'template_body': '{"ROSTemplateFormatVersion": "2015-09-01"}',
-            'template_url': 'oss://ros-template/demo',
-            'template_id': '5ecd1e10-b0e9-4389-a565-e4c15efc****',
-            'template_version': 'v1',
-            'template_location': 'ros-template/'
-        }]
+        'Examples': [
+            {
+                'template_body': '{"ROSTemplateFormatVersion": "2015-09-01"}',
+                'template_url': 'oss://ros-template/demo',
+                'template_id': '5ecd1e10-b0e9-4389-a565-e4c15efc****',
+                'template_version': 'v1',
+                'template_location': 'ros-template/',
+            }
+        ],
     },
     TAGS: {
         'Description': 'TAGS to apply to template.',
-        'Examples': [{
-            'env': 'Product',
-            'app': 'MyApp'
-        }],
+        'Examples': [{'env': 'Product', 'app': 'MyApp'}],
     },
-    ROLE_NAME: {
-        'Description': 'Role name to use while running test.',
-        'Examples': ['my-test-role']
-    },
+    ROLE_NAME: {'Description': 'Role name to use while running test.', 'Examples': ['my-test-role']},
     HOOKS: {
         'Description': 'Hooks to run before and after tests.',
-        'Examples': [{
-            'HookName1': {
-                'execute_time': 'PreCreate',
-                'execute_command': 'echo "hello world"',
-                'log_location': 'oss:://my-bucket-name/object-name'
+        'Examples': [
+            {
+                'HookName1': {
+                    'execute_time': 'PreCreate',
+                    'execute_command': 'echo "hello world"',
+                    'log_location': 'oss:://my-bucket-name/object-name',
+                }
             }
-        }]
-    }
+        ],
+    },
 }
 
 # types
@@ -164,14 +150,14 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
             specified_config = Config(
                 type='access_key',
                 access_key_id=specified_profile.get('access_key_id'),
-                access_key_secret=specified_profile.get('access_key_secret')
+                access_key_secret=specified_profile.get('access_key_secret'),
             )
         elif specified_profile.get('mode') == 'StsToken':
             specified_config = Config(
                 type='sts',
                 access_key_id=specified_profile.get('access_key_id'),
                 access_key_secret=specified_profile.get('access_key_secret'),
-                security_token=specified_profile.get('sts_token')
+                security_token=specified_profile.get('sts_token'),
             )
         elif specified_profile.get('mode') == 'RamRoleArn':
             specified_config = Config(
@@ -182,13 +168,10 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
                 role_arn=specified_profile.get('ram_role_arn'),
                 role_session_name=specified_profile.get('ram_session_name'),
                 policy=specified_profile.get('policy', ''),
-                role_session_expiration=specified_profile.get('expired_seconds', 900)
+                role_session_expiration=specified_profile.get('expired_seconds', 900),
             )
         elif specified_profile.get('mode') == 'EcsRamRole':
-            specified_config = Config(
-                type='ecs_ram_role',
-                role_name=specified_profile.get('ram_role_name')
-            )
+            specified_config = Config(type='ecs_ram_role', role_name=specified_profile.get('ram_role_name'))
         else:
             return None
         return CredentialClient(config=specified_config)
@@ -228,10 +211,9 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
     tf_version: Optional[str] = field(default=None)
 
     def __hash__(self):
-        return hash((
-            self.template_body, self.template_url,
-            self.template_id, self.template_version,
-            self.template_location))
+        return hash(
+            (self.template_body, self.template_url, self.template_id, self.template_version, self.template_location)
+        )
 
     def _get_tf_version(self):
         if not self.tf_version:
@@ -264,13 +246,11 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
                 return
 
             common_path = os.path.commonpath(list(tf_content))
-            work_space = {
-                p.replace(common_path + '/', ''): value for p, value in tf_content.items()
-            }
+            work_space = {p.replace(common_path + '/', ''): value for p, value in tf_content.items()}
             return {
                 'ROSTemplateFormatVersion': '2015-09-01',
                 'Transform': self._get_tf_version(),
-                'Workspace': work_space
+                'Workspace': work_space,
             }
         return template_file
 
@@ -299,8 +279,10 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
         tpl_path = result.pop(TEMPLATE_LOCATION, None)
         tpl_item = self._get_template_location(tpl_path)
         if tpl_item is None:
-            msg = f'Could not find template in {tpl_path or DEFAULT_TEMPLATE_PATH} directory' \
-                  f'Template files need end with .template.json or .template.yaml or .template.yml.'
+            msg = (
+                f'Could not find template in {tpl_path or DEFAULT_TEMPLATE_PATH} directory'
+                f'Template files need end with .template.json or .template.yaml or .template.yml.'
+            )
             raise Iact3Exception(msg)
         elif isinstance(tpl_item, dict):
             result[TEMPLATE_BODY] = json.dumps(tpl_item)
@@ -316,6 +298,7 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
                 LOG.debug(str(e), exc_info=True)
                 raise Iact3Exception(f'can not find a template: {str(e)}')
         return result
+
 
 class HookExecuteTime(str, Enum):
     PRE_CREATE = "PreCreate"
@@ -336,9 +319,7 @@ class HookConfig(JsonSchemaMixin, allow_additional_props=False):
     async def execute(self, report_path, name_prefix: str, uid):
         LOG.info("start execute %s hook %s." % (self.execute_time.value, self.hook_name))
         process = await asyncio.create_subprocess_exec(
-            *self.execute_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *self.execute_command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await process.communicate()
         stdout_str = stdout.decode(encoding='utf-8') if stdout else None
@@ -353,9 +334,7 @@ class HookConfig(JsonSchemaMixin, allow_additional_props=False):
                 await f_result.write(stderr_str)
 
         result = dict(
-            HookName=self.hook_name,
-            ExecuteStatus="Failed" if stderr_str else "Success",
-            ResultFileName=result_name
+            HookName=self.hook_name, ExecuteStatus="Failed" if stderr_str else "Success", ResultFileName=result_name
         )
 
         if self.oss_config is not None and self.oss_config.plugin is not None:
@@ -370,21 +349,17 @@ class HookConfig(JsonSchemaMixin, allow_additional_props=False):
 
         return result
 
+
 @dataclass
 class GeneralConfig(JsonSchemaMixin):
     '''General configuration settings.'''
 
-    auth: Auth = field(
-        default_factory=Auth, metadata=METADATA[AUTH])
-    regions: Optional[List[Region]] = field(
-        default_factory=list, metadata=METADATA[REGIONS])
-    parameters: Optional[Dict[ParameterKey, Any]] = field(
-        default_factory=dict, metadata=METADATA[PARAMETERS])
+    auth: Auth = field(default_factory=Auth, metadata=METADATA[AUTH])
+    regions: Optional[List[Region]] = field(default_factory=list, metadata=METADATA[REGIONS])
+    parameters: Optional[Dict[ParameterKey, Any]] = field(default_factory=dict, metadata=METADATA[PARAMETERS])
     parameters_order: Optional[List[str]] = field(default_factory=list)
-    tags: Optional[Dict[TagKey, TagValue]] = field(
-        default_factory=dict, metadata=METADATA[TAGS])
-    oss_config: Optional[OssConfig] = field(
-        default_factory=OssConfig, metadata=METADATA[OSS_CONFIG])
+    tags: Optional[Dict[TagKey, TagValue]] = field(default_factory=dict, metadata=METADATA[TAGS])
+    oss_config: Optional[OssConfig] = field(default_factory=OssConfig, metadata=METADATA[OSS_CONFIG])
 
 
 @dataclass
@@ -392,17 +367,16 @@ class ProjectConfig(GeneralConfig):
     '''Project specific configuration section'''
 
     name: Optional[str] = field(default='iact3-default-project-name')
-    role_name: Optional[str] = field(
-        default_factory=str, metadata=METADATA[ROLE_NAME])
-    template_config: TemplateConfig = field(
-        default_factory=TemplateConfig, metadata=METADATA[TEMPLATE_CONFIG])
-    hooks: Optional[Dict[str, HookConfig]] = field(
-        default_factory=dict, metadata=METADATA[HOOKS])
+    role_name: Optional[str] = field(default_factory=str, metadata=METADATA[ROLE_NAME])
+    template_config: TemplateConfig = field(default_factory=TemplateConfig, metadata=METADATA[TEMPLATE_CONFIG])
+    hooks: Optional[Dict[str, HookConfig]] = field(default_factory=dict, metadata=METADATA[HOOKS])
 
 
 @dataclass
 class TestConfig(ProjectConfig):
     '''Test specific configuration section.'''
+
+    __test__ = False
 
     def __post_init__(self):
         self.test_name = None
@@ -480,16 +454,19 @@ class BaseConfig(JsonSchemaMixin):
             oss_config.plugin = OssPlugin(
                 region_id=oss_config.bucket_region,
                 bucket_name=oss_config.bucket_name,
-                credential=base_config.general.auth.credential)
+                credential=base_config.general.auth.credential,
+            )
             oss_config.validate_bucket()
 
     @classmethod
-    def create(cls: Type[T],
-               global_config_path: Path = GENERAL_CONFIG_FILE,
-               project_config_file: Path = DEFAULT_CONFIG_FILE,
-               args: Optional[dict] = None,
-               project_path: str = None,
-               fail_ok: bool = False) -> T:
+    def create(
+        cls: Type[T],
+        global_config_path: Path = GENERAL_CONFIG_FILE,
+        project_config_file: Path = DEFAULT_CONFIG_FILE,
+        args: Optional[dict] = None,
+        project_path: str = None,
+        fail_ok: bool = False,
+    ) -> T:
         if not project_path:
             project_path = DEFAULT_PROJECT_ROOT
         project_root: Path = Path(project_path).expanduser().resolve()
@@ -497,7 +474,7 @@ class BaseConfig(JsonSchemaMixin):
         sources = [
             cls.generate_from_file(global_config_path),
             cls.generate_from_file(project_config_path, fail_ok=fail_ok),
-            args or {}
+            args or {},
         ]
         config = reduce(cls.merge, sources)
         general_config = config.get(GENERAL, {})
@@ -505,11 +482,9 @@ class BaseConfig(JsonSchemaMixin):
         merged_test_configs = {
             key: cls.merge(merged_project_config, value) for key, value in config.get(TESTS, {}).items()
         }
-        base_config = cls.from_dict({
-            GENERAL: general_config,
-            PROJECT: merged_project_config,
-            TESTS: merged_test_configs
-        })
+        base_config = cls.from_dict(
+            {GENERAL: general_config, PROJECT: merged_project_config, TESTS: merged_test_configs}
+        )
         cls._init_oss_config(base_config)
         return base_config
 

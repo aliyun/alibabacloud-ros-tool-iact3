@@ -55,20 +55,8 @@ class GlobalArgs:
                 'dest': '_debug',
             },
         ],
-        [
-            ['--profile'],
-            {
-                'help': 'set the default profile used.',
-                'dest': '_profile'
-            }
-        ],
-        [
-            ['--log-prefix'],
-            {
-                'help': 'set the log prefix.',
-                'dest': '_log_prefix'
-            }
-        ]
+        [['--profile'], {'help': 'set the default profile used.', 'dest': '_profile'}],
+        [['--log-prefix'], {'help': 'set the log prefix.', 'dest': '_log_prefix'}],
     ]
 
     def __init__(self):
@@ -152,9 +140,7 @@ class CliCore:
             kwargs = {'action': action, 'help': param_help}
             if not required:
                 name = name.replace('_', '-')
-                kwargs.update(
-                    {'required': required, 'default': default, 'dest': param.name}
-                )
+                kwargs.update({'required': required, 'default': default, 'dest': param.name})
             if action == 'store':
                 kwargs.update({'type': val_type})
             if required:
@@ -169,16 +155,12 @@ class CliCore:
     @staticmethod
     def _get_param_help(item, param):
         help_str = ''
-        docstring = (
-            item.__doc__
-            if isinstance(item, types.FunctionType)
-            else item.__init__.__doc__
-        )
+        docstring = item.__doc__ if isinstance(item, types.FunctionType) else item.__init__.__doc__
         if docstring is None:
             return help_str
         for line in docstring.split('\n'):
             if line.strip().startswith(f':param {param}:'):
-                help_str = line.strip()[len(f':param {param}:'):].strip()
+                help_str = line.strip()[len(f':param {param}:') :].strip()
                 break
         return help_str
 
@@ -252,14 +234,13 @@ class CliCore:
         for mod in self._modules:
             usage = self._build_usage({'command': mod})
             description = self._get_help(self._modules[mod])
-            mod_parser = self._add_sub_parser(usage, description, mod, command_parser,
-                                              self.args['commands'][mod]['args'])
+            mod_parser = self._add_sub_parser(
+                usage, description, mod, command_parser, self.args['commands'][mod]['args']
+            )
             self.subcommand_parsers[mod] = mod_parser
             subcommands = self.args['commands'][mod]['subcommands']
             if subcommands:
-                class_methods = {
-                    m[0]: m[1] for m in self._get_class_methods(self._modules[mod])
-                }
+                class_methods = {m[0]: m[1] for m in self._get_class_methods(self._modules[mod])}
                 description = self._get_command_help(class_methods)
                 subcommand_parser = self._add_sub(
                     parser=mod_parser,

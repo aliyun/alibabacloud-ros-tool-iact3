@@ -13,7 +13,6 @@ from tests.common import BaseTest
 
 
 class TestBasePlugin(BaseTest):
-
     def test_credentials_env(self):
         '''
         set environment
@@ -36,4 +35,3 @@ class TestBasePlugin(BaseTest):
         response = await client.list_stacks_with_options_async(request, runtime_option)
         response = TeaCore.to_map(response)
         print(response)
-

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Verify _fast_help() in iact3.__main__ stays in sync with iact3.cli_modules."""
+
 import inspect
 import io
 import unittest
@@ -16,10 +17,7 @@ class TestFastHelpConsistency(unittest.TestCase):
         with redirect_stdout(captured):
             _fast_help()
         self.text = captured.getvalue()
-        self.commands = {
-            name.lower(): cls
-            for name, cls in inspect.getmembers(cli_modules, inspect.isclass)
-        }
+        self.commands = {name.lower(): cls for name, cls in inspect.getmembers(cli_modules, inspect.isclass)}
 
     def test_all_commands_listed(self):
         for cmd in self.commands:

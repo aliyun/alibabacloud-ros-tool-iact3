@@ -46,7 +46,7 @@ oslo.i18n==5.1.0
 oslo.utils==6.0.1
 oss2==2.16.0
 packaging>=21.3
-pbr==5.11.0
+pbr==7.0.3
 pluggy==1.0.0
 pycparser==2.21
 pycryptodome==3.19.1

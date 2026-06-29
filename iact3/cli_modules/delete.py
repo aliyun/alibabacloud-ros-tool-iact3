@@ -25,11 +25,14 @@ class Delete:
         self.project_path = project_path
 
     @classmethod
-    async def create(cls, regions: str = None,
-                     config_file: str = None,
-                     project_path: str = None,
-                     tags: dict = None,
-                     stack_id: str = None):
+    async def create(
+        cls,
+        regions: str = None,
+        config_file: str = None,
+        project_path: str = None,
+        tags: dict = None,
+        stack_id: str = None,
+    ):
         credential = List.get_credential(config_file, project_path)
         all_stacks = await List.create(regions, config_file, project_path, tags, stack_id=stack_id)
         if not all_stacks:
@@ -40,7 +43,7 @@ class Delete:
 
         for i in range(0, len(all_stacks), LIMIT):
             stacks = Stacks()
-            stacks += [Stack.from_stack_response(stack, credential=credential) for stack in all_stacks[i: i+LIMIT]]
+            stacks += [Stack.from_stack_response(stack, credential=credential) for stack in all_stacks[i : i + LIMIT]]
             stacker = Stacker.from_stacks(stacks)
             await stacker.delete_stacks()
             await printer.report_test_progress(stacker)

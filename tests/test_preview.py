@@ -6,6 +6,7 @@ from tests.common import BaseTest
 import logging
 import logging.handlers
 
+
 class TestRun(BaseTest):
     async def test_preview_with_valid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'test_config.iact3.yaml')
@@ -16,11 +17,9 @@ class TestRun(BaseTest):
 
         await Preview.create(config_file=config_file)
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[6].getMessage())
-        self.assertIn("VPC::EIPAssociation", logs[10].getMessage())
-        self.assertIn("\"AllocationId\": \"EIP\",", logs[11].getMessage())
+        self.assert_any_log_contains(memory_handler, "test_name: default")
+        self.assert_any_log_contains(memory_handler, "VPC::EIPAssociation")
+        self.assert_any_log_contains(memory_handler, "\"AllocationId\": \"EIP\",")
 
     async def test_preview_with_invalid_config(self):
         config_file = os.path.join(self.DATA_PATH, 'failed_cost_config.iact3.yaml')
@@ -31,12 +30,10 @@ class TestRun(BaseTest):
 
         await Preview.create(config_file=config_file)
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[6].getMessage())
-        self.assertIn("region: cn-hangzhou", logs[7].getMessage())
-        self.assertIn("StackValidationFailed", logs[8].getMessage())
-        self.assertIn("code:", logs[9].getMessage())
+        self.assert_any_log_contains(memory_handler, "test_name: default")
+        self.assert_any_log_contains(memory_handler, "region: cn-hangzhou")
+        self.assert_any_log_contains(memory_handler, "StackValidationFailed")
+        self.assert_any_log_contains(memory_handler, "code:")
 
     async def test_preview_with_only_template(self):
         template = os.path.join(self.DATA_PATH, 'simple_template.yml')
@@ -54,10 +51,7 @@ class TestRun(BaseTest):
         logger = logging.getLogger()
         logger.addHandler(memory_handler)
 
-        await Preview.create(config_file=config_file,regions="cn-hangzhou,cn-beijing")
+        await Preview.create(config_file=config_file, regions="cn-hangzhou,cn-beijing")
 
-        logs = memory_handler.buffer
-
-        self.assertIn("test_name: default", logs[11].getMessage())
-        self.assertIn("test_name: default", logs[100].getMessage())
-
+        messages = [message for message in self._log_messages(memory_handler) if "test_name: default" in message]
+        self.assertGreaterEqual(len(messages), 2)

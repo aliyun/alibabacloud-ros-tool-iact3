@@ -49,11 +49,51 @@ def generate_client_token_ex(prefix: str, suffix: str):
 
 
 ROS_FUNCTION_NAMES = {
-    "MergeMap", "Sub", "Base64Decode", "Indent", "Base64", "If", "EachMemberIn", "FormatTime", "Length",
-    "Not", "Replace", "Min", "Equals", "Test", "Split", "Join", "ListMerge", "Or", "ResourceFacade",
-    "SelectMapList", "MergeMapToList", "Select", "Calculate", "FindInMap", "MarketplaceImage", "GetAZs",
-    "Any", "Contains", "Add", "Str", "GetAtt", "Base64Encode", "GetStackOutput", "TransformNamespace", "Jq",
-    "Max", "MemberListToMap", "Index", "Cidr", "GetJsonValue", "Ref", "And", "Avg", "MatchPattern", "Sub"
+    "MergeMap",
+    "Sub",
+    "Base64Decode",
+    "Indent",
+    "Base64",
+    "If",
+    "EachMemberIn",
+    "FormatTime",
+    "Length",
+    "Not",
+    "Replace",
+    "Min",
+    "Equals",
+    "Test",
+    "Split",
+    "Join",
+    "ListMerge",
+    "Or",
+    "ResourceFacade",
+    "SelectMapList",
+    "MergeMapToList",
+    "Select",
+    "Calculate",
+    "FindInMap",
+    "MarketplaceImage",
+    "GetAZs",
+    "Any",
+    "Contains",
+    "Add",
+    "Str",
+    "GetAtt",
+    "Base64Encode",
+    "GetStackOutput",
+    "TransformNamespace",
+    "Jq",
+    "Max",
+    "MemberListToMap",
+    "Index",
+    "Cidr",
+    "GetJsonValue",
+    "Ref",
+    "And",
+    "Avg",
+    "MatchPattern",
+    "Sub",
 }
 
 
@@ -68,6 +108,7 @@ def make_constructor(fun_name):
         tag_name = 'Fn::{}'.format(fun_name)
 
     if fun_name == 'GetAtt':
+
         def get_attribute_constructor(loader, node):
             if isinstance(node, yaml.ScalarNode):
                 value = loader.construct_scalar(node)
@@ -93,6 +134,7 @@ def make_constructor(fun_name):
             else:
                 value = loader.construct_object(node)
                 return {tag_name: value}
+
         return get_attribute_constructor
 
     def constructor(loader, node):

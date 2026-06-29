@@ -6,6 +6,7 @@ from tests.common import BaseTest
 import logging
 import logging.handlers
 
+
 class TestRun(BaseTest):
     async def test_policy_with_valid_template(self):
         template = os.path.join(self.DATA_PATH, 'simple_template.yml')
@@ -15,11 +16,9 @@ class TestRun(BaseTest):
         logger.addHandler(memory_handler)
 
         await Policy.create(template=template)
-        logs = memory_handler.buffer
-
         result = '{\n    "Statement": [],\n    "Version": "1"\n}'
 
-        self.assertEqual(result, logs[2].getMessage())
+        self.assert_any_log_equals(memory_handler, result)
 
     async def test_policy_with_no_args(self):
         with self.assertRaises(FileNotFoundError) as cm:

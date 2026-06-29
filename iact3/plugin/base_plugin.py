@@ -21,7 +21,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_INI_CREDENTIAL_FILE_PATHS = [
     os.path.join(HOME, '.alibabacloud/credentials.ini'),
-    os.path.join(HOME, '.aliyun/credentials.ini')
+    os.path.join(HOME, '.aliyun/credentials.ini'),
 ]
 
 
@@ -35,7 +35,7 @@ class CredentialsProvider(providers.DefaultCredentialsProvider):
         super().__init__()
         self.user_configuration_providers = [
             providers.EnvironmentVariableCredentialsProvider(),
-            providers.ProfileCredentialsProvider(path=self._get_credential_file_path())
+            providers.ProfileCredentialsProvider(path=self._get_credential_file_path()),
         ]
         role_name = auth_util.environment_ECSMeta_data
         if role_name is not None:
@@ -51,7 +51,6 @@ class CredentialsProvider(providers.DefaultCredentialsProvider):
 
 
 class CredentialClient(Client):
-
     def __init__(self, config=None):
         if config is None:
             provider = CredentialsProvider()
@@ -61,14 +60,11 @@ class CredentialClient(Client):
 
 
 class TeaSDKPlugin(metaclass=abc.ABCMeta):
-
     product = None
 
-    def __init__(self,
-                 region_id: str,
-                 credential: CredentialClient = None,
-                 config_kwargs: dict = None,
-                 endpoint: str = None):
+    def __init__(
+        self, region_id: str, credential: CredentialClient = None, config_kwargs: dict = None, endpoint: str = None
+    ):
         self.region_id = region_id
         if not credential:
             credential = CredentialClient()
@@ -76,10 +72,7 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
 
         if not config_kwargs:
             config_kwargs = {}
-        config_kwargs.update(
-            region_id=region_id,
-            credential=credential
-        )
+        config_kwargs.update(region_id=region_id, credential=credential)
         if endpoint:
             config_kwargs.update(endpoint=endpoint)
 
@@ -97,10 +90,7 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     def runtime_kwargs(self):
-        return {
-            'autoretry': True,
-            'max_attempts': 3
-        }
+        return {'autoretry': True, 'max_attempts': 3}
 
     @property
     def client(self):
@@ -111,25 +101,23 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
             return self.api_client()(self.config)
         return self._client
 
-    async def send_request(self, request_name: str, ignore_exception: bool=False, **kwargs) -> dict:
+    async def send_request(self, request_name: str, ignore_exception: bool = False, **kwargs) -> dict:
         request = self._build_request(request_name, **kwargs)
         api_name = self._get_api_name(request_name)
         action_name = self._get_action_name(api_name)
         func = getattr(self.client, action_name)
         try:
             resp = await func(request, self.runtime_option)
-        except TeaException as ex:        
+        except TeaException as ex:
             LOG.debug(f'plugin exception: {self.product} {self.endpoint} {api_name} {request.to_map()} {ex.data}')
             if ignore_exception:
                 return ex.data
             raise ex
         if not isinstance(resp, TeaModel):
             LOG.error(f'plugin response: {self.product} {self.endpoint} {api_name} {request.to_map()} {resp}')
-            raise TeaException(dict(
-                code=error_code.UNKNOWN_ERROR,
-                message='The response of TeaSDK is not TeaModel.',
-                data=resp
-            ))
+            raise TeaException(
+                dict(code=error_code.UNKNOWN_ERROR, message='The response of TeaSDK is not TeaModel.', data=resp)
+            )
         resp = TeaCore.to_map(resp)
         LOG.debug(f'plugin response: {self.product} {self.endpoint} {api_name} {request.to_map()} {resp}')
         return resp.get('body', {})
@@ -167,8 +155,13 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
         assert isinstance(tags, dict)
         kwargs[tag_key] = [dict(Key=k, Value=v) for k, v in tags.items() if v is not None]
 
-    PAGE_NUMBER, PAGE_SIZE, TOTAL_COUNT, TOTAL_PAGES, TOTAL = \
-        'PageNumber', 'PageSize', 'TotalCount', 'TotalPages', 'Total'
+    PAGE_NUMBER, PAGE_SIZE, TOTAL_COUNT, TOTAL_PAGES, TOTAL = (
+        'PageNumber',
+        'PageSize',
+        'TotalCount',
+        'TotalPages',
+        'Total',
+    )
     PAGE_OUTER_KEY = None
 
     async def fetch_all(self, request, kwargs, *keys):

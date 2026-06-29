@@ -116,26 +116,23 @@ class ReportBuilder:
                                 success = stack.launch_succeeded
                                 if not success:
                                     test_result = 'Failed'
-                                details.append({
-                                    'TestName': test_name,
-                                    'TestedRegion': region,
-                                    'StackName': stack_name,
-                                    'StackId': stack.id,
-                                    'TestResult': status,
-                                    'TestLog': clog,
-                                    'Result': 'Success' if success else 'Failed'
-                                })
+                                details.append(
+                                    {
+                                        'TestName': test_name,
+                                        'TestedRegion': region,
+                                        'StackName': stack_name,
+                                        'StackId': stack.id,
+                                        'TestResult': status,
+                                        'TestLog': clog,
+                                        'Result': 'Success' if success else 'Failed',
+                                    }
+                                )
                         doc.stag("p")
 
-            html_output = yattag.indent(
-                doc.getvalue(), indentation="    ", newline="\r\n", indent_text=True
-            )
+            html_output = yattag.indent(doc.getvalue(), indentation="    ", newline="\r\n", indent_text=True)
             with open(str(self._output_file / 'index.html'), 'w', encoding='utf-8') as _f:
                 _f.write(html_output)
-            json_result = {
-                'Result': test_result,
-                'Details': details
-            }
+            json_result = {'Result': test_result, 'Details': details}
             file_name = self._report_json_name
             with open(str(self._output_file / file_name), 'w', encoding='utf-8') as f:
                 json.dump(json_result, f, ensure_ascii=False)
@@ -171,7 +168,7 @@ class ReportBuilder:
                 "ResourceStatus": resource.status,
                 "ResourceType": resource.type,
                 "LogicalResourceId": resource.logical_id,
-                "PhysicalResourceId": resource.physical_id
+                "PhysicalResourceId": resource.physical_id,
             }
             if resource.status_reason:
                 resource_details["ResourceStatusReason"] = resource.status_reason
@@ -183,11 +180,8 @@ class ReportBuilder:
     @staticmethod
     async def get_outputs(stack: Stack):
         outputs = [
-            {
-                "OutputKey": o["OutputKey"],
-                "OutputValue": o.get("OutputValue"),
-                "Description": o.get("Description")
-            } for o in stack.outputs or []
+            {"OutputKey": o["OutputKey"], "OutputValue": o.get("OutputValue"), "Description": o.get("Description")}
+            for o in stack.outputs or []
         ]
         return outputs
 
@@ -199,11 +193,11 @@ class ReportBuilder:
                 "ExecuteStatus": h["ExecuteStatus"],
                 "ResultFileName": h["ResultFileName"],
                 "OSSLocation": h.get("OSSLocation"),
-            } for h in stack.hook_results or []
+            }
+            for h in stack.hook_results or []
         ]
 
-
-    async def create_logs(self, log_format:str):
+    async def create_logs(self, log_format: str):
         if log_format:
             log_formats = log_format.split(',')
         else:
@@ -223,20 +217,20 @@ class ReportBuilder:
         file_names.append(self._report_json_name)
         return file_names
 
-    async def add_attr_minidom(self, doc: minidom.Document,father_node: minidom.Element, label, value):     
+    async def add_attr_minidom(self, doc: minidom.Document, father_node: minidom.Element, label, value):
         child = doc.createElement(label)
         father_node.appendChild(child)
         if isinstance(value, dict):
             for k, v in value.items():
                 await self.add_attr_minidom(doc, child, k, v)
-            
+
         elif isinstance(value, list):
             for list_item in value:
                 await self.add_attr_minidom(doc, child, "item", list_item)
         else:
             child_content = doc.createTextNode(str(value))
             child.appendChild(child_content)
-       
+
     async def write_logs(self, stack: Stack, log_path: Path, log_formats: list):
         stack_name = stack.name
         region = stack.region
@@ -270,13 +264,13 @@ class ReportBuilder:
                     "Resources": resources,
                     "TestTime": test_time,
                     "Outputs": outputs,
-                    "HookLogs": hook_results
+                    "HookLogs": hook_results,
                 }
                 json.dump(json_output, log_output, ensure_ascii=False, indent=4)
                 log_output.close()
-        
+
         if "xml" in log_formats:
-            with open(str(log_path)+'.xml', 'w', encoding='utf-8') as log_output:
+            with open(str(log_path) + '.xml', 'w', encoding='utf-8') as log_output:
                 xml_doc = minidom.Document()
                 root = xml_doc.createElement(f'{stack.name}-{stack.region}')
                 xml_doc.appendChild(root)
@@ -292,15 +286,12 @@ class ReportBuilder:
                 await self.add_attr_minidom(xml_doc, root, "TestTime", test_time)
                 await self.add_attr_minidom(xml_doc, root, "Outputs", outputs)
                 await self.add_attr_minidom(xml_doc, root, "HookLogs", hook_results)
-            
+
                 log_output.write(xml_doc.toprettyxml(indent="\t"))
 
-        async with aiofiles.open(str(log_path)+'.txt', "a", encoding="utf-8") as log_output:
-            await log_output.write(
-                "------------------------------------------------------------------"
-                "-----------\n"
-            )
-            line_flag = "*"*77
+        async with aiofiles.open(str(log_path) + '.txt', "a", encoding="utf-8") as log_output:
+            await log_output.write("-----------------------------------------------------------------------------\n")
+            line_flag = "*" * 77
             line_flag = f"{line_flag}\n"
             await log_output.write("Region: " + region + "\n")
             await log_output.write("StackName: " + stack_name + "\n")
@@ -308,10 +299,7 @@ class ReportBuilder:
             await log_output.write(line_flag)
             if parameters:
                 parameters = [
-                    dict(
-                        ParameterKey=k,
-                        ParameterValue=v if v is not None else ''
-                    ) for k, v in parameters.items()
+                    dict(ParameterKey=k, ParameterValue=v if v is not None else '') for k, v in parameters.items()
                 ]
                 await log_output.write(tabulate.tabulate(parameters, headers="keys"))
                 await log_output.write(f"\n{line_flag}")
@@ -336,13 +324,6 @@ class ReportBuilder:
             await log_output.write(tabulate.tabulate(hook_results, headers="keys"))
             await log_output.write(f"\n{line_flag}")
             await log_output.write(line_flag)
-            await log_output.write(
-                "Tested on: "
-                + test_time
-                + "\n"
-            )
-            await log_output.write(
-                "------------------------------------------------------------------"
-                "-----------\n\n"
-            )
+            await log_output.write("Tested on: " + test_time + "\n")
+            await log_output.write("-----------------------------------------------------------------------------\n\n")
             await log_output.close()

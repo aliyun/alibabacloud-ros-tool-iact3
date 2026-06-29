@@ -27,8 +27,8 @@ class PrintMsg:
     right_top = "\u2513"
     left = "\u2523"
     left_bottom = "\u2517"
-    right = "\u252B"
-    right_bottom = "\u251B"
+    right = "\u252b"
+    right_bottom = "\u251b"
     top = "\u2501"
 
 

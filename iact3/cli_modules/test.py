@@ -22,18 +22,19 @@ class Test:
     @CliCore.longform_param_required('keep_failed')
     @CliCore.longform_param_required('dont_wait_for_delete')
     @CliCore.longform_param_required('failed')
-    async def run(template: str = None,
-                  config_file: str = None,
-                  output_directory: str = None,
-                  regions: str = None,
-                  test_names: str = None,
-                  no_delete: bool = False,
-                  project_path: str = None,
-                  keep_failed: bool = False,
-                  dont_wait_for_delete: bool = False,
-                  generate_parameters: bool = False,
-                  log_format: str = None
-                  ) -> None:
+    async def run(
+        template: str = None,
+        config_file: str = None,
+        output_directory: str = None,
+        regions: str = None,
+        test_names: str = None,
+        no_delete: bool = False,
+        project_path: str = None,
+        keep_failed: bool = False,
+        dont_wait_for_delete: bool = False,
+        generate_parameters: bool = False,
+        log_format: str = None,
+    ) -> None:
         '''
         tests whether IaC templates are able to successfully launch
         :param template: path to a template
@@ -59,7 +60,7 @@ class Test:
             keep_failed=keep_failed,
             dont_wait_for_delete=dont_wait_for_delete,
             test_names=test_names,
-            output_directory=output_directory
+            output_directory=output_directory,
         )
         if generate_parameters:
             Test._get_parameters(tests)
@@ -87,20 +88,14 @@ class Test:
         await List.create(regions)
 
     @staticmethod
-    async def params(template: str = None,
-                     config_file: str = DEFAULT_CONFIG_FILE,
-                     regions: str = None):
+    async def params(template: str = None, config_file: str = DEFAULT_CONFIG_FILE, regions: str = None):
         '''
         Generate pseudo parameters
         :param template: path to a template
         :param config_file: path to a config file
         :param regions: comma separated list of regions
         '''
-        tests = await StackTest.from_file(
-            template=template,
-            project_config_file=config_file,
-            regions=regions
-        )
+        tests = await StackTest.from_file(template=template, project_config_file=config_file, regions=regions)
         Test._get_parameters(tests)
 
     @staticmethod
@@ -110,8 +105,9 @@ class Test:
             {
                 'TestName': con.name,
                 'TestRegion': con.region,
-                'Parameters': getattr(con.error, 'message', 'GetParameterError') if con.error else con.parameters
-            } for con in all_configs
+                'Parameters': getattr(con.error, 'message', 'GetParameterError') if con.error else con.parameters,
+            }
+            for con in all_configs
         ]
         LOG.info(json.dumps(parameters, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False))
         return parameters

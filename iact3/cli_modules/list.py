@@ -15,6 +15,7 @@ class List:
     '''
     List stacks which were created by Iact3 for all regions.
     '''
+
     @CliCore.longform_param_required('project_path')
     def __init__(self, regions: str = None, config_file: str = None, project_path: str = None):
         '''
@@ -27,11 +28,14 @@ class List:
         self.project_path = project_path
 
     @classmethod
-    async def create(cls, regions: str = None,
-                     config_file: str = None,
-                     project_path: str = None,
-                     tags: dict = None,
-                     stack_id: str = None):
+    async def create(
+        cls,
+        regions: str = None,
+        config_file: str = None,
+        project_path: str = None,
+        tags: dict = None,
+        stack_id: str = None,
+    ):
         credential = cls.get_credential(config_file, project_path)
         if regions:
             regions = regions.split(',')
@@ -45,15 +49,13 @@ class List:
             tags = SYS_TAGS
         for region in regions:
             stack_plugin = StackPlugin(region_id=region, credential=credential)
-            list_tasks.append(
-                asyncio.create_task(stack_plugin.fetch_all_stacks(tags, stack_id=stack_id))
-            )
+            list_tasks.append(asyncio.create_task(stack_plugin.fetch_all_stacks(tags, stack_id=stack_id)))
         stacks = await asyncio.gather(*list_tasks)
         all_stacks, project_length, test_length, stack_name_length = cls._get_all_stacks(stacks)
         if not all_stacks:
             LOG.info('can not find any stack.')
             return
-        header = f'ProjectName{" "*project_length}TestName{" "*test_length}StackName{" "*stack_name_length}Region'
+        header = f'ProjectName{" " * project_length}TestName{" " * test_length}StackName{" " * stack_name_length}Region'
         LOG.info(header)
         column = '{}           {}        {}         {}'
         for stack in all_stacks:
@@ -103,6 +105,6 @@ class List:
         base_config = BaseConfig.create(
             project_config_file=config_file or DEFAULT_CONFIG_FILE,
             project_path=project_path or DEFAULT_PROJECT_ROOT,
-            fail_ok=True
+            fail_ok=True,
         )
         return base_config.get_credential()

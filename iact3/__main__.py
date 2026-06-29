@@ -3,11 +3,13 @@ import sys
 
 def _fast_version():
     from iact3 import __version__
+
     if getattr(sys, 'frozen', False):
         print(__version__)
         return
     try:
         from importlib.metadata import version, PackageNotFoundError
+
         try:
             print(version('alibabacloud-ros-iact3'))
         except PackageNotFoundError:
@@ -20,6 +22,7 @@ def _fast_help():
     # MAINTENANCE: This help text is a static copy of argparse output for fast startup.
     # When adding/removing commands or global options, update this text AND iact3/cli.py.
     from iact3.util import get_program_name
+
     prog = get_program_name('iact3')
     print(f"""usage: {prog} [args] <command> [args] [subcommand] [args]
 
@@ -64,6 +67,7 @@ def sync_run():
         _fast_help()
         return
     from iact3.main import sync_run as _sync_run
+
     _sync_run()
 
 

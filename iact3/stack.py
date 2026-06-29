@@ -67,14 +67,16 @@ SYS_TAGS = {'CreatedBy': f'{IAC_NAME}'}
 class Stacker:
     NULL_UUID = uuid.UUID(int=0)
 
-    def __init__(self,
-                 project_name: str = None,
-                 tests: List[TestConfig] = None,
-                 uid: uuid.UUID = NULL_UUID,
-                 name_prefix: str = IAC_NAME,
-                 tags: dict = None,
-                 stacks: Stacks = None,
-                 report_path: Path = None):
+    def __init__(
+        self,
+        project_name: str = None,
+        tests: List[TestConfig] = None,
+        uid: uuid.UUID = NULL_UUID,
+        name_prefix: str = IAC_NAME,
+        tags: dict = None,
+        stacks: Stacks = None,
+        report_path: Path = None,
+    ):
         self.tests = tests or []
         self.project_name = project_name
         self.stack_name_prefix = name_prefix
@@ -109,22 +111,18 @@ class Stacker:
             result[StackStatus.curt(status)] = {stack.id: stack.status_reason}
         return result
 
-    async def delete_stacks(self, stacks: Stacks=None):
+    async def delete_stacks(self, stacks: Stacks = None):
         if stacks is None:
             stacks = self.stacks
         await self.execute_hooks(execute_time=HookExecuteTime.PRE_DELETE, stacks=stacks)
-        stack_tasks = [
-            asyncio.create_task(Stack.delete(stack)) for stack in stacks
-        ]
+        stack_tasks = [asyncio.create_task(Stack.delete(stack)) for stack in stacks]
         await asyncio.gather(*stack_tasks)
-    
+
     async def get_stacks_price(self):
         if self.stacks:
             raise Iact3Exception('Stacker already initialised with stack objects')
         self.tags.update(self._sys_tags)
-        stack_tasks = [
-            asyncio.create_task(Stack.get_price(test, self.tags, self.uid)) for test in self.tests
-        ]
+        stack_tasks = [asyncio.create_task(Stack.get_price(test, self.tags, self.uid)) for test in self.tests]
         self.stacks += await asyncio.gather(*stack_tasks)
 
     async def preview_stacks_result(self):
@@ -139,14 +137,13 @@ class Stacker:
     async def get_stack_outputs(self):
         return [stack.get_stack_outputs() for stack in self.stacks]
 
-    async def execute_hooks(self, execute_time, stacks: Stacks=None):
+    async def execute_hooks(self, execute_time, stacks: Stacks = None):
         exec_stacks = self.stacks if stacks is None else stacks
         hook_tasks = [
-            asyncio.create_task(stack.execute_hook(
-                execute_time=execute_time,
-                report_path=self.report_path,
-                uid=self.uid
-            )) for stack in [s for s in exec_stacks if s.id is not None]
+            asyncio.create_task(
+                stack.execute_hook(execute_time=execute_time, report_path=self.report_path, uid=self.uid)
+            )
+            for stack in [s for s in exec_stacks if s.id is not None]
         ]
         return await asyncio.gather(*hook_tasks)
 
@@ -164,17 +161,13 @@ def criteria_matches(kwargs: dict, instance):
 
 
 class StackStatus:
-    COMPLETE = [
-        'CREATE_COMPLETE',
-        'UPDATE_COMPLETE',
-        'DELETE_COMPLETE'
-    ]
+    COMPLETE = ['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_COMPLETE']
     IN_PROGRESS = [
         'CREATE_IN_PROGRESS',
         'UPDATE_IN_PROGRESS',
         'DELETE_IN_PROGRESS',
         'CREATE_ROLLBACK_IN_PROGRESS',
-        'ROLLBACK_IN_PROGRESS'
+        'ROLLBACK_IN_PROGRESS',
     ]
     FAILED = [
         'CREATE_FAILED',
@@ -183,7 +176,7 @@ class StackStatus:
         'CREATE_ROLLBACK_FAILED',
         'CREATE_ROLLBACK_COMPLETE',
         'ROLLBACK_FAILED',
-        'ROLLBACK_COMPLETE'
+        'ROLLBACK_COMPLETE',
     ]
 
     @classmethod
@@ -217,9 +210,7 @@ class Event:
 
 
 class Resource:
-    def __init__(
-            self, stack_id: str, resource_dict: dict, test_name: str = '', uuid: UUID = None
-    ):
+    def __init__(self, stack_id: str, resource_dict: dict, test_name: str = '', uuid: UUID = None):
         uuid = uuid if uuid else uuid4()
         self.stack_id: str = stack_id
         self.test_name: str = test_name
@@ -243,12 +234,21 @@ class Resource:
 
 
 class Stack:
-
-    def __init__(self, region: str, stack_id: Optional[str], test_name: str = None,
-                 uuid: UUID = None, status_reason: str = None, stack_name: str = None,
-                 parameters: dict = None, credential: CredentialClient = None, 
-                 template_price: dict = None, preview_result: dict = None,
-                 test_config: TestConfig = None, hook_results: list = None):
+    def __init__(
+        self,
+        region: str,
+        stack_id: Optional[str],
+        test_name: str = None,
+        uuid: UUID = None,
+        status_reason: str = None,
+        stack_name: str = None,
+        parameters: dict = None,
+        credential: CredentialClient = None,
+        template_price: dict = None,
+        preview_result: dict = None,
+        test_config: TestConfig = None,
+        hook_results: list = None,
+    ):
         self.test_name: str = test_name
         self.uuid: UUID = uuid if uuid else uuid4()
         self.id: str = stack_id
@@ -310,7 +310,7 @@ class Stack:
             test_name=stack.get('TestName'),
             uuid=stack.get('TestId'),
             stack_name=stack.get('StackName'),
-            credential=credential
+            credential=credential,
         )
 
     def _replace_output_placeholders(self, text):
@@ -318,6 +318,7 @@ class Stack:
             return text
 
         outputs = {o['OutputKey']: o['OutputValue'] for o in self.outputs}
+
         def replace_match(match):
             key = match.group(1)
             return str(outputs.get(key, f"$[outputs.{key}]"))
@@ -350,7 +351,7 @@ class Stack:
             report_path=report_path,
             stack_name=self.name,
             uid=uid,
-            region=self.region
+            region=self.region,
         )
         if not results:
             return
@@ -375,8 +376,7 @@ class Stack:
         return results
 
     @classmethod
-    async def create(cls, test: TestConfig, tags: dict = None, uuid: UUID = None,
-                     report_path: Path = None) -> 'Stack':
+    async def create(cls, test: TestConfig, tags: dict = None, uuid: UUID = None, report_path: Path = None) -> 'Stack':
         parameters = test.parameters
         template_args = test.template_config.to_dict()
         name = test.test_name
@@ -390,16 +390,23 @@ class Stack:
         stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
         config_error = test.error
         if config_error:
-            stack = cls(region, None, name, uuid,
-                        status_reason=getattr(config_error, 'message', 'Unknown error'),
-                        stack_name=stack_name, credential=credential)
+            stack = cls(
+                region,
+                None,
+                name,
+                uuid,
+                status_reason=getattr(config_error, 'message', 'Unknown error'),
+                stack_name=stack_name,
+                credential=credential,
+            )
             stack.status = getattr(config_error, 'code', 'Unknown error')
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
 
         hook_results = await cls._execute_hook(
-            HookExecuteTime.PRE_CREATE, test.hooks, report_path, stack_name, uid=uuid, region=region)
+            HookExecuteTime.PRE_CREATE, test.hooks, report_path, stack_name, uid=uuid, region=region
+        )
         try:
             stack_id = await plugin.create_stack(
                 stack_name=stack_name,
@@ -408,20 +415,37 @@ class Stack:
                 client_token=client_token,
                 tags=tags,
                 **template_args,
-                disable_rollback=True
+                disable_rollback=True,
             )
         except TeaException as ex:
             stack_id = None
-            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
-                        stack_name=stack_name, parameters=parameters, credential=credential,
-                        test_config=test, hook_results=hook_results)
+            stack = cls(
+                region,
+                stack_id,
+                name,
+                uuid,
+                status_reason=ex.message,
+                stack_name=stack_name,
+                parameters=parameters,
+                credential=credential,
+                test_config=test,
+                hook_results=hook_results,
+            )
             stack.status = ex.code
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
-        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
-                    parameters=parameters, credential=credential,
-                    test_config=test, hook_results=hook_results)
+        stack = cls(
+            region,
+            stack_id,
+            name,
+            uuid,
+            stack_name=stack_name,
+            parameters=parameters,
+            credential=credential,
+            test_config=test,
+            hook_results=hook_results,
+        )
         await stack.refresh()
         return stack
 
@@ -439,32 +463,52 @@ class Stack:
         stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
         config_error = test.error
         if config_error:
-            stack = cls(region, None, name, uuid,
-                        status_reason=getattr(config_error, 'message', 'Unknown error'),
-                        stack_name=stack_name, credential=credential)
+            stack = cls(
+                region,
+                None,
+                name,
+                uuid,
+                status_reason=getattr(config_error, 'message', 'Unknown error'),
+                stack_name=stack_name,
+                credential=credential,
+            )
             stack.status = getattr(config_error, 'code', 'Unknown error')
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
         try:
             template_price = await plugin.get_template_estimate_cost(
-                parameters=parameters,
-                **template_args,
-                region_id=region
+                parameters=parameters, **template_args, region_id=region
             )
         except TeaException as ex:
             stack_id = None
-            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
-                        stack_name=stack_name, parameters=parameters, credential=credential)
+            stack = cls(
+                region,
+                stack_id,
+                name,
+                uuid,
+                status_reason=ex.message,
+                stack_name=stack_name,
+                parameters=parameters,
+                credential=credential,
+            )
             stack.status = ex.code
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
         stack_id = None
-        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
-                    parameters=parameters, credential=credential, template_price=template_price)
+        stack = cls(
+            region,
+            stack_id,
+            name,
+            uuid,
+            stack_name=stack_name,
+            parameters=parameters,
+            credential=credential,
+            template_price=template_price,
+        )
         return stack
-    
+
     @classmethod
     async def preview_stack_result(cls, test: TestConfig, tags: dict = None, uuid: UUID = None):
         parameters = test.parameters
@@ -479,31 +523,50 @@ class Stack:
         stack_name = f'{IAC_NAME}-{name}-{region}-{uuid4().hex[:8]}'
         config_error = test.error
         if config_error:
-            stack = cls(region, None, name, uuid,
-                        status_reason=getattr(config_error, 'message', 'Unknown error'),
-                        stack_name=stack_name, credential=credential)
+            stack = cls(
+                region,
+                None,
+                name,
+                uuid,
+                status_reason=getattr(config_error, 'message', 'Unknown error'),
+                stack_name=stack_name,
+                credential=credential,
+            )
             stack.status = getattr(config_error, 'code', 'Unknown error')
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
         try:
             preview_result = await plugin.preview_stack(
-                parameters=parameters,
-                **template_args,
-                region_id=region,
-                stack_name=stack_name
+                parameters=parameters, **template_args, region_id=region, stack_name=stack_name
             )
         except TeaException as ex:
             stack_id = None
-            stack = cls(region, stack_id, name, uuid, status_reason=ex.message,
-                        stack_name=stack_name, parameters=parameters, credential=credential)
+            stack = cls(
+                region,
+                stack_id,
+                name,
+                uuid,
+                status_reason=ex.message,
+                stack_name=stack_name,
+                parameters=parameters,
+                credential=credential,
+            )
             stack.status = ex.code
             stack._launch_succeeded = False
             stack.timer.cancel()
             return stack
         stack_id = None
-        stack = cls(region, stack_id, name, uuid, stack_name=stack_name,
-                    parameters=parameters, credential=credential, preview_result=preview_result)
+        stack = cls(
+            region,
+            stack_id,
+            name,
+            uuid,
+            stack_name=stack_name,
+            parameters=parameters,
+            credential=credential,
+            preview_result=preview_result,
+        )
         return stack
 
     async def refresh(self, properties: bool = True, events: bool = False, resources: bool = False) -> None:
@@ -546,11 +609,7 @@ class Stack:
         self._events = events
 
     async def resources(self, refresh: bool = False) -> Resources:
-        if (
-                refresh
-                or not self._resources
-                or self._auto_refresh(self._last_resource_refresh)
-        ):
+        if refresh or not self._resources or self._auto_refresh(self._last_resource_refresh):
             await self._fetch_stack_resources()
         return self._resources
 
@@ -559,7 +618,7 @@ class Stack:
         resources = Resources()
         stack_resources = await self.plugin.list_stack_resources(self.id)
         for res in stack_resources:
-            resources.append(Resource(self.id,res,self.test_name,self.uuid))
+            resources.append(Resource(self.id, res, self.test_name, self.uuid))
         self._resources = resources
 
     @staticmethod

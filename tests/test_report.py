@@ -7,7 +7,6 @@ from iact3.stack import Stack
 
 
 class TestReport(BaseTest):
-
     async def test_index(self):
         stacker = Stacker('test', tests=[])
         report = ReportBuilder(stacker, self.DATA_PATH)
@@ -32,13 +31,12 @@ class TestReport(BaseTest):
 
         report_name = await report.create_logs(log_format=None)
 
-        self.assertListEqual(report_name,["test-stack-cn-hangzhou.txt","test-result.json"])
+        self.assertListEqual(report_name, ["test-stack-cn-hangzhou.txt", "test-result.json"])
         self.assertEqual(os.path.exists(self.DATA_PATH / "test-stack-cn-hangzhou.txt"), True)
         with open(self.DATA_PATH / "test-stack-cn-hangzhou.txt", "r") as f:
             lines = f.readlines()
 
-
-        self.assertIn("Region: cn-hangzhou\n",lines)
+        self.assertIn("Region: cn-hangzhou\n", lines)
         self.assertIn("StackName: test-stack\n", lines)
         self.assertIn("StackId: \n", lines)
         self.assertIn("TestedResult: Failed  \n", lines)
@@ -64,7 +62,9 @@ class TestReport(BaseTest):
 
         report_name = await report.create_logs("json")
 
-        self.assertListEqual(report_name,["test-stack-cn-hangzhou.txt","test-stack-cn-hangzhou.json","test-result.json"])
+        self.assertListEqual(
+            report_name, ["test-stack-cn-hangzhou.txt", "test-stack-cn-hangzhou.json", "test-result.json"]
+        )
         self.assertEqual(os.path.exists(self.DATA_PATH / "test-stack-cn-hangzhou.json"), True)
 
         for file in report_name:
@@ -85,7 +85,9 @@ class TestReport(BaseTest):
 
         report_name = await report.create_logs("xml")
 
-        self.assertListEqual(report_name,["test-stack-cn-hangzhou.txt","test-stack-cn-hangzhou.xml","test-result.json"])
+        self.assertListEqual(
+            report_name, ["test-stack-cn-hangzhou.txt", "test-stack-cn-hangzhou.xml", "test-result.json"]
+        )
         self.assertEqual(os.path.exists(self.DATA_PATH / "test-stack-cn-hangzhou.xml"), True)
 
         for file in report_name:
@@ -108,7 +110,15 @@ class TestReport(BaseTest):
 
         report_name = await report.create_logs("xml,json")
 
-        self.assertListEqual(report_name,["test-stack-cn-hangzhou.txt","test-stack-cn-hangzhou.json","test-stack-cn-hangzhou.xml","test-result.json"])
+        self.assertListEqual(
+            report_name,
+            [
+                "test-stack-cn-hangzhou.txt",
+                "test-stack-cn-hangzhou.json",
+                "test-stack-cn-hangzhou.xml",
+                "test-result.json",
+            ],
+        )
         self.assertEqual(os.path.exists(self.DATA_PATH / "test-stack-cn-hangzhou.xml"), True)
         self.assertEqual(os.path.exists(self.DATA_PATH / "test-stack-cn-hangzhou.json"), True)
 

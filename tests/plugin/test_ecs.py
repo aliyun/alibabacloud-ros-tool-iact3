@@ -4,7 +4,6 @@ from tests.common import BaseTest
 
 
 class TestEcsPlugin(BaseTest):
-
     def setUp(self) -> None:
         super(TestEcsPlugin, self).setUp()
         self.plugin = EcsPlugin(region_id=self.REGION_ID)

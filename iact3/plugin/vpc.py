@@ -4,7 +4,6 @@ from iact3.plugin.base_plugin import TeaSDKPlugin
 
 
 class VpcBasePlugin(TeaSDKPlugin):
-
     product = 'VPC'
 
     def api_client(self):
@@ -15,7 +14,6 @@ class VpcBasePlugin(TeaSDKPlugin):
 
 
 class VpcPlugin(VpcBasePlugin):
-
     async def get_one_vpc(self, vpc_id: str = None):
         kwargs = dict(VpcId=vpc_id, PageSize=50)
         response = await self.send_request('DescribeVpcsRequest', **kwargs)

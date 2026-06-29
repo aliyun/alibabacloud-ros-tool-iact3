@@ -6,7 +6,6 @@ from tests.common import BaseTest
 
 
 class TestRosPlugin(BaseTest):
-
     def setUp(self) -> None:
         super(TestRosPlugin, self).setUp()
         self.plugin = StackPlugin(region_id=self.REGION_ID)
@@ -14,17 +13,12 @@ class TestRosPlugin(BaseTest):
     async def test_create_stack(self):
         tpl = {
             'ROSTemplateFormatVersion': '2015-09-01',
-            'Parameters': {
-                'A': {'Type': 'String'},
-                'B': {'Type': 'Number'}
-            }
+            'Parameters': {'A': {'Type': 'String'}, 'B': {'Type': 'Number'}},
         }
-        params = {
-            'A': 'a',
-            'B': 1
-        }
+        params = {'A': 'a', 'B': 1}
         stack_id = await self.plugin.create_stack(
-            stack_name='ros-test', template_body=json.dumps(tpl), parameters=params)
+            stack_name='ros-test', template_body=json.dumps(tpl), parameters=params
+        )
         print(stack_id)
 
     async def test_get_stack(self):
@@ -44,9 +38,7 @@ class TestRosPlugin(BaseTest):
         tasks = []
         for region in regions:
             plugin = StackPlugin(region_id=region)
-            tasks.append(
-                asyncio.create_task(plugin.fetch_all_stacks(tags))
-            )
+            tasks.append(asyncio.create_task(plugin.fetch_all_stacks(tags)))
         result = await asyncio.gather(*tasks)
         print(result)
 
@@ -67,39 +59,28 @@ class TestRosPlugin(BaseTest):
 
     async def test_get_parameters_constraints(self):
         tpl = {
-            'Parameters': {
-                'ZoneId': {'Type': 'String'},
-                'InstanceType': {'Type': 'String'}
-            },
+            'Parameters': {'ZoneId': {'Type': 'String'}, 'InstanceType': {'Type': 'String'}},
             'ROSTemplateFormatVersion': '2015-09-01',
             'Resources': {
                 'ECS': {
                     'Properties': {
                         'ZoneId': {'Ref': 'ZoneId'},
                         'InstanceType': {'Ref': 'InstanceType'},
-                        'ImageId': 'CentOs_7'
+                        'ImageId': 'CentOs_7',
                     },
-                    'Type': 'ALIYUN::ECS::Instance'
+                    'Type': 'ALIYUN::ECS::Instance',
                 }
-            }
+            },
         }
         tpl_path = self.DATA_PATH / 'ecs_instance.template.json'
         with open(tpl_path, 'r', encoding='utf-8') as file_handle:
             tpl = json.load(file_handle)
-        params1 = {
-            'NetworkType': 'vpc',
-            'InstanceChargeType': 'PostPaid',
-            'ZoneId': 'cn-shanghai-h'
-        }
+        params1 = {'NetworkType': 'vpc', 'InstanceChargeType': 'PostPaid', 'ZoneId': 'cn-shanghai-h'}
         result1 = await self.plugin.get_parameter_constraints(
             template_body=json.dumps(tpl), parameters_key_filter=['InstanceType'], parameters=params1
         )
         self._pprint_json(result1)
-        params2 = {
-            'NetworkType': 'vpc',
-            'InstanceChargeType': 'PostPaid',
-            'ZoneId': 'cn-shanghai-l'
-        }
+        params2 = {'NetworkType': 'vpc', 'InstanceChargeType': 'PostPaid', 'ZoneId': 'cn-shanghai-l'}
         result2 = await self.plugin.get_parameter_constraints(
             template_body=json.dumps(tpl), parameters_key_filter=['InstanceType'], parameters=params2
         )
@@ -111,38 +92,30 @@ class TestRosPlugin(BaseTest):
 
     async def test_get_template_estimate_cost(self):
         tpl = {
-            'Parameters': {
-                'ZoneId': {'Type': 'String'},
-                'InstanceType': {'Type': 'String'}
-            },
+            'Parameters': {'ZoneId': {'Type': 'String'}, 'InstanceType': {'Type': 'String'}},
             'ROSTemplateFormatVersion': '2015-09-01',
             'Resources': {
                 'ECS': {
                     'Properties': {
                         'ZoneId': {'Ref': 'ZoneId'},
                         'InstanceType': {'Ref': 'InstanceType'},
-                        'ImageId': 'CentOs_7'
+                        'ImageId': 'CentOs_7',
                     },
-                    'Type': 'ALIYUN::ECS::Instance'
+                    'Type': 'ALIYUN::ECS::Instance',
                 }
-            }
+            },
         }
-        params = {
-            'InstanceType': 'ecs.g6e.large',
-            'ZoneId': 'cn-hangzhou-h'
-        }
+        params = {'InstanceType': 'ecs.g6e.large', 'ZoneId': 'cn-hangzhou-h'}
         region_id = 'cn-hangzhou'
         result = await self.plugin.get_template_estimate_cost(
-             template_body=json.dumps(tpl), parameters=params, region_id=region_id)
+            template_body=json.dumps(tpl), parameters=params, region_id=region_id
+        )
         self._pprint_json(result)
 
     async def test_validate_template(self):
         tpl = {
             'ROSTemplateFormatVersion': '2015-09-01',
-            'Parameters': {
-                'A': {'Type': 'String'},
-                'B': {'Type': 'Number'}
-            }
+            'Parameters': {'A': {'Type': 'String'}, 'B': {'Type': 'Number'}},
         }
 
         result = await self.plugin.validate_template(template_body=json.dumps(tpl))
@@ -159,34 +132,32 @@ class TestRosPlugin(BaseTest):
                         "Name": "TestEIP",
                         "InternetChargeType": "PayByBandwidth",
                         "Netmode": "public",
-                        "Bandwidth": 5
-                    }
+                        "Bandwidth": 5,
+                    },
                 }
-            }
+            },
         }
         params = {}
         region_id = 'cn-shanghai'
         result = await self.plugin.preview_stack(
-            stack_name='ros-test-preview', template_body=json.dumps(tpl), parameters=params, region_id=region_id)
+            stack_name='ros-test-preview', template_body=json.dumps(tpl), parameters=params, region_id=region_id
+        )
         self._pprint_json(result)
 
     async def test_generate_template_policy(self):
         tpl = {
-            'Parameters': {
-                'ZoneId': {'Type': 'String'},
-                'InstanceType': {'Type': 'String'}
-            },
+            'Parameters': {'ZoneId': {'Type': 'String'}, 'InstanceType': {'Type': 'String'}},
             'ROSTemplateFormatVersion': '2015-09-01',
             'Resources': {
                 'ECS': {
                     'Properties': {
                         'ZoneId': {'Ref': 'ZoneId'},
                         'InstanceType': {'Ref': 'InstanceType'},
-                        'ImageId': 'centos_7'
+                        'ImageId': 'centos_7',
                     },
-                    'Type': 'ALIYUN::ECS::Instance'
+                    'Type': 'ALIYUN::ECS::Instance',
                 }
-            }
+            },
         }
 
         result = await self.plugin.generate_template_policy(template_body=json.dumps(tpl))

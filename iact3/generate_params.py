@@ -23,10 +23,7 @@ IAC_PACKAGE_NAME = 'alibabacloud-ros-iact3'
 
 
 class Selector:
-
-    def __init__(self, key: str, original_value: any,
-                 allowed_values: list = None,
-                 parameters: dict = None):
+    def __init__(self, key: str, original_value: any, allowed_values: list = None, parameters: dict = None):
         self.key = key
         self.original_value = original_value
         self.allowed_values = allowed_values or []
@@ -40,7 +37,6 @@ class Selector:
 
 
 class LinkedList:
-
     def __init__(self):
         self._head = None
         self._last = None
@@ -95,7 +91,6 @@ def _error_message(key, value, msg):
 
 
 class ResolvedParameters:
-
     def __init__(self, name: str, region: str, parameters: dict, error=None):
         self.name = name
         self.region = region
@@ -104,8 +99,8 @@ class ResolvedParameters:
 
 
 class ParamGenerator:
-    RE_V_AUTO = re.compile(fr'\$\[{IAC_NAME}-auto]', re.I)
-    RE_V_CURRENT_REGION = re.compile(fr'\$\[{IAC_NAME}-current[-_]region]', re.I)
+    RE_V_AUTO = re.compile(rf'\$\[{IAC_NAME}-auto]', re.I)
+    RE_V_CURRENT_REGION = re.compile(rf'\$\[{IAC_NAME}-current[-_]region]', re.I)
 
     RE_K_ZONE_ID = re.compile(r'(\w*)zone(_|)id(_|)(\d*)', re.I)
     RE_K_VPC_ID = re.compile(r'(\w*)vpc(_|)id(_|)(\d*)', re.I)
@@ -139,7 +134,8 @@ class ParamGenerator:
             await pg.resolve_auto_key()
             resolved_parameters = ResolvedParameters(config.test_name, config.region, pg.parameters)
             LOG.debug(
-                f'success generate parameters for {config.test_name}, parameters {resolved_parameters.parameters}')
+                f'success generate parameters for {config.test_name}, parameters {resolved_parameters.parameters}'
+            )
         except Exception as ex:
             resolved_parameters = ResolvedParameters(config.test_name, config.region, pg.parameters, error=ex)
             LOG.debug(f'failed generate parameters for {config.test_name}, {ex}', exc_info=True)
@@ -226,8 +222,10 @@ class ParamGenerator:
         parameters = selector.parameters
         allowed_values = selector.allowed_values
         current_value = selector.current_value
-        error_msg = f'can not find any available value for {key} in {self.region} region ' \
-                    f'in {allowed_values} for {self.config.test_name}'
+        error_msg = (
+            f'can not find any available value for {key} in {self.region} region '
+            f'in {allowed_values} for {self.config.test_name}'
+        )
 
         if allowed_values:
             next_selector = selector.next
@@ -248,7 +246,7 @@ class ParamGenerator:
             parameters=parameters,
             **self.template_config.to_dict(),
             parameters_key_filter=[key],
-            parameters_order=self.parameters_order
+            parameters_order=self.parameters_order,
         )
         if values is None:
             next_selector = selector.next
@@ -264,8 +262,10 @@ class ParamGenerator:
             prev_selector = selector.prev
             if not prev_selector:
                 param = json.dumps({k: v for k, v in parameters.items() if v is not None})
-                msg = (f'no available value found for {key} '
-                       f'based on parameter {param} in {self.region} for {self.config.test_name}')
+                msg = (
+                    f'no available value found for {key} '
+                    f'based on parameter {param} in {self.region} for {self.config.test_name}'
+                )
                 raise Iact3Exception(msg)
             error_msg = f'no available value found for {key} in {self.region} region for {self.config.test_name}'
             return await self._select_value(prev_selector, error_message=error_msg)
@@ -313,8 +313,7 @@ class ParamGenerator:
         if template_id:
             try:
                 template_info = await self.plugin.get_template(
-                    template_id=template_id,
-                    template_version=self.template_config.template_version
+                    template_id=template_id, template_version=self.template_config.template_version
                 )
                 return template_info['TemplateBody']
             except Exception as ex:
@@ -341,8 +340,9 @@ class ParamGenerator:
                     for chunk in reader:
                         result += chunk
                         if len(result) > max_size:
-                            raise Iact3Exception(f'template from {template_url}'
-                                                 f'exceeds maximum allowed size ({max_size} bytes)')
+                            raise Iact3Exception(
+                                f'template from {template_url}exceeds maximum allowed size ({max_size} bytes)'
+                            )
                     return result
                 except Exception as ex:
                     raise Iact3Exception(f'Failed to retrieve {template_url}: {ex}')

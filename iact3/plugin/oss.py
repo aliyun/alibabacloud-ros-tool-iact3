@@ -13,38 +13,24 @@ def retry_on_exception(exception):
 
 
 class OssPlugin:
-
-    def __init__(self, region_id: str,
-                 bucket_name: str,
-                 endpoint: str = None,
-                 credential: CredentialClient = None,
-                 **kwargs):
+    def __init__(
+        self, region_id: str, bucket_name: str, endpoint: str = None, credential: CredentialClient = None, **kwargs
+    ):
         self.region_id = region_id
         self.auth = self._get_auth(credential)
         if not endpoint:
             endpoint = f'https://oss-{self.region_id}.aliyuncs.com'
         self.endpoint = endpoint
-        self.client = oss2.Bucket(
-            self.auth, self.endpoint, bucket_name,
-            app_name='iact3',
-            connect_timeout=30,
-            **kwargs)
+        self.client = oss2.Bucket(self.auth, self.endpoint, bucket_name, app_name='iact3', connect_timeout=30, **kwargs)
 
     @staticmethod
     def _get_auth(cred: CredentialClient = None):
         cred_client = CredentialClient() if cred is None else cred
         credential = cred_client.cloud_credential
         if isinstance(credential, credentials.AccessKeyCredential):
-            auth = oss2.Auth(
-                credential.access_key_id,
-                credential.access_key_secret
-            )
+            auth = oss2.Auth(credential.access_key_id, credential.access_key_secret)
         elif isinstance(credential, credentials.StsCredential):
-            auth = oss2.StsAuth(
-                credential.access_key_id,
-                credential.access_key_secret,
-                credential.security_token
-            )
+            auth = oss2.StsAuth(credential.access_key_id, credential.access_key_secret, credential.security_token)
         else:
             auth = oss2.AnonymousAuth()
         return auth
@@ -55,8 +41,9 @@ class OssPlugin:
         return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str)))
 
     @retry(retry_on_exception=retry_on_exception, stop_max_attempt_number=3, wait_fixed=5)
-    def put_object_with_string(self, object_name: str, strings: str,
-                               callback_params: dict = None, callback_var_params: dict = None):
+    def put_object_with_string(
+        self, object_name: str, strings: str, callback_params: dict = None, callback_var_params: dict = None
+    ):
         params = {}
         if callback_params:
             params['x-oss-callback'] = self._encode_callback(callback_params)

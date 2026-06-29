@@ -4,8 +4,20 @@ import uuid
 from pathlib import Path
 from typing import Any, Type, TypeVar, List, Optional
 
-from iact3.config import BaseConfig, PROJECT, REGIONS, TEMPLATE_CONFIG, TestConfig, IAC_NAME, \
-    DEFAULT_PROJECT_ROOT, OssConfig, Auth, TEMPLATE_LOCATION, DEFAULT_CONFIG_FILE, DEFAULT_OUTPUT_DIRECTORY
+from iact3.config import (
+    BaseConfig,
+    PROJECT,
+    REGIONS,
+    TEMPLATE_CONFIG,
+    TestConfig,
+    IAC_NAME,
+    DEFAULT_PROJECT_ROOT,
+    OssConfig,
+    Auth,
+    TEMPLATE_LOCATION,
+    DEFAULT_CONFIG_FILE,
+    DEFAULT_OUTPUT_DIRECTORY,
+)
 from iact3.exceptions import Iact3Exception
 from iact3.report.generate_reports import ReportBuilder
 from iact3.stack import Stacker
@@ -13,17 +25,22 @@ from iact3.termial_print import TerminalPrinter
 
 LOG = logging.getLogger(__name__)
 
-T = TypeVar("T", bound="Test")
+T = TypeVar("T", bound="Base")
 
 
 class Base(metaclass=abc.ABCMeta):
-
-    def __init__(self, project_name: str, configs: List[TestConfig],
-                 no_delete: bool = False, keep_failed: bool = False,
-                 dont_wait_for_delete: bool = False, rerun_failed: bool = False,
-                 oss_config: OssConfig = None, auth: Auth = None,
-                 report_path: Path = None
-                 ):
+    def __init__(
+        self,
+        project_name: str,
+        configs: List[TestConfig],
+        no_delete: bool = False,
+        keep_failed: bool = False,
+        dont_wait_for_delete: bool = False,
+        rerun_failed: bool = False,
+        oss_config: OssConfig = None,
+        auth: Auth = None,
+        report_path: Path = None,
+    ):
         self.project_name = project_name
         self.configs = configs
         self.passed: bool = False
@@ -54,18 +71,19 @@ class Base(metaclass=abc.ABCMeta):
         await self.clean_up()
 
     @classmethod
-    async def from_file(cls: Type[T],
-                        template: str,
-                        project_config_file: str,
-                        regions: str,
-                        project_path: str = None,
-                        no_delete: bool = False,
-                        keep_failed: bool = False,
-                        dont_wait_for_delete: bool = False,
-                        rerun_failed: bool = False,
-                        test_names: str = None,
-                        output_directory: str = None
-                        ) -> T:
+    async def from_file(
+        cls: Type[T],
+        template: str,
+        project_config_file: str,
+        regions: str,
+        project_path: str = None,
+        no_delete: bool = False,
+        keep_failed: bool = False,
+        dont_wait_for_delete: bool = False,
+        rerun_failed: bool = False,
+        test_names: str = None,
+        output_directory: str = None,
+    ) -> T:
         args = {}
         if regions:
             args[REGIONS] = regions.split(',')
@@ -82,11 +100,11 @@ class Base(metaclass=abc.ABCMeta):
             project_path = DEFAULT_PROJECT_ROOT
             if template:
                 args[TEMPLATE_CONFIG] = {TEMPLATE_LOCATION: template}
-        
+
         base_config = BaseConfig.create(
             project_config_file=project_config_file or DEFAULT_CONFIG_FILE,
             args={PROJECT: args},
-            project_path=project_path
+            project_path=project_path,
         )
         project_name = base_config.project.name
         if not project_name:
@@ -96,14 +114,17 @@ class Base(metaclass=abc.ABCMeta):
         output_directory = output_directory or DEFAULT_OUTPUT_DIRECTORY
         report_path = project_root / output_directory
         report_path.mkdir(exist_ok=True)
-        return cls(project_name, configs,
-                   no_delete=no_delete,
-                   keep_failed=keep_failed,
-                   dont_wait_for_delete=dont_wait_for_delete,
-                   rerun_failed=rerun_failed,
-                   oss_config=base_config.project.oss_config,
-                   auth=base_config.general.auth,
-                   report_path=report_path)
+        return cls(
+            project_name,
+            configs,
+            no_delete=no_delete,
+            keep_failed=keep_failed,
+            dont_wait_for_delete=dont_wait_for_delete,
+            rerun_failed=rerun_failed,
+            oss_config=base_config.project.oss_config,
+            auth=base_config.general.auth,
+            report_path=report_path,
+        )
 
     async def report(self, log_format=None):
         report_path = self.report_path
@@ -117,8 +138,10 @@ class Base(metaclass=abc.ABCMeta):
         if oss_plugin is None:
             return
 
-        LOG.info(f'starting upload reports to oss bucket {self.oss_config.bucket_name} '
-                 f'which is in {self.oss_config.bucket_region} region')
+        LOG.info(
+            f'starting upload reports to oss bucket {self.oss_config.bucket_name} '
+            f'which is in {self.oss_config.bucket_region} region'
+        )
         oss_prefix = self.oss_config.object_prefix or f'{report_path.name}-{self.uid}'
         oss_prefix = f'{IAC_NAME}/{oss_prefix}'
 
@@ -134,8 +157,7 @@ class Base(metaclass=abc.ABCMeta):
                 'callbackBodyType': callback_config.callback_body_type,
             }
             callback_var_params = callback_config.callback_var_params
-            oss_plugin.put_object_with_string(
-                f'{oss_prefix}/index.html', index, callback_params, callback_var_params)
+            oss_plugin.put_object_with_string(f'{oss_prefix}/index.html', index, callback_params, callback_var_params)
         else:
             oss_plugin.put_object_with_string(f'{oss_prefix}/index.html', index)
 

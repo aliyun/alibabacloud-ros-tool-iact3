@@ -19,6 +19,7 @@ def _patch_vendored_six(prefix):
     sys.modules[f'{prefix}.moves.urllib'] = moves_urllib
 
     import urllib.parse, urllib.error, urllib.request
+
     moves_urllib.parse = urllib.parse
     sys.modules[f'{prefix}.moves.urllib.parse'] = urllib.parse
     moves_urllib.error = urllib.error
@@ -28,29 +29,35 @@ def _patch_vendored_six(prefix):
 
     # http modules
     import http.client
+
     sys.modules[f'{prefix}.moves.http_client'] = http.client
     moves.http_client = http.client
 
     from http import cookiejar
+
     sys.modules[f'{prefix}.moves.http_cookiejar'] = cookiejar
     moves.http_cookiejar = cookiejar
 
     from http import cookies
+
     sys.modules[f'{prefix}.moves.http_cookies'] = cookies
     moves.http_cookies = cookies
 
     # queue
     import queue
+
     sys.modules[f'{prefix}.moves.queue'] = queue
     moves.queue = queue
 
     # io
     import io
+
     moves.StringIO = io.StringIO
     moves.cStringIO = io.StringIO
 
     # configparser
     import configparser
+
     sys.modules[f'{prefix}.moves.configparser'] = configparser
     moves.configparser = configparser
 
