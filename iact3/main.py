@@ -70,7 +70,10 @@ def get_installed_version():
     if getattr(sys, 'frozen', False):
         return __version__
     try:
-        from importlib.metadata import version, PackageNotFoundError
+        if sys.version_info >= (3, 8):
+            from importlib.metadata import version, PackageNotFoundError
+        else:
+            from importlib_metadata import version, PackageNotFoundError
 
         try:
             return version(IAC_PACKAGE_NAME)

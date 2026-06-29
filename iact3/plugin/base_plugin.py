@@ -1,5 +1,6 @@
 import abc
 import asyncio
+import importlib
 import logging
 import os
 
@@ -12,7 +13,6 @@ from alibabacloud_credentials.utils import auth_util
 from alibabacloud_credentials.utils.auth_constant import HOME
 from alibabacloud_tea_openapi.models import Config
 from alibabacloud_tea_util.models import RuntimeOptions
-from oslo_utils import importutils
 
 from iact3.plugin import error_code
 from iact3.util import pascal_to_snake
@@ -144,7 +144,9 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
         if not request_name.endswith('Request'):
             request_name = f'{request_name}Request'
         class_path = self.models_path(request_name)
-        request = importutils.import_class(class_path)()
+        module_path, class_name = class_path.rsplit('.', 1)
+        request_class = getattr(importlib.import_module(module_path), class_name)
+        request = request_class()
         request = request.from_map(kwargs)
         return request
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from iact3 import __version__
 
-PYINSTALLER_REQUIRED_VERSION = '6.11.1'
+PYINSTALLER_REQUIRED_VERSION = '6.21.0'
 BUILD_VERSION = os.environ.get('IACT3_BUILD_VERSION', '').strip() or __version__
 
 

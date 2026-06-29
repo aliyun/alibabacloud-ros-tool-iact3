@@ -10,7 +10,7 @@ or used through the Docker-based GitHub Action.
 ## Requirements
 
 - Python 3.7 or later for the Python package.
-- Python 3.9 or later when building the standalone binary with PyInstaller.
+- Python 3.8 or later when building the standalone binary with PyInstaller.
 - Alibaba Cloud credentials with permission to call ROS and the services used by
   the template under test.
 
@@ -40,8 +40,7 @@ directly. The binary includes the Python runtime and package dependencies.
 
 ```bash
 python -m pip install --upgrade pip
-pip install pyinstaller==6.11.1
-pip install -r requirements.txt
+pip install ".[binary]"
 python build.py
 ```
 

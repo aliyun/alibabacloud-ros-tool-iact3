@@ -24,8 +24,7 @@ python -m unittest tests.test_fast_help_consistency
 
 ```bash
 python -m pip install --upgrade pip
-pip install pyinstaller==6.11.1
-pip install -r requirements.txt
+pip install ".[binary]"
 python build.py
 ```
 

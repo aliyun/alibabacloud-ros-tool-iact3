@@ -55,9 +55,8 @@ You can build iact3 as a standalone binary using PyInstaller, which requires no 
 
 ## Prerequisites
 
-- Python 3.9+
-- PyInstaller (`pip install pyinstaller==6.11.1`)
-- Project dependencies (`pip install -r requirements.txt`)
+- Python 3.8+
+- Build dependencies (`pip install ".[binary]"`)
 
 ## Build
 

@@ -8,6 +8,17 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 
+REQUIREMENTS_REFERENCING_PATHS = [
+    ROOT / "Dockerfile",
+    ROOT / "MANIFEST.in",
+    ROOT / "README.md",
+    ROOT / "tox.ini",
+    ROOT / "website" / "docs" / "developer.md",
+    ROOT / "website" / "docs" / "installation.md",
+    ROOT / "website" / "i18n" / "zh-cn" / "docusaurus-plugin-content-docs" / "current" / "developer.md",
+    ROOT / "website" / "i18n" / "zh-cn" / "docusaurus-plugin-content-docs" / "current" / "installation.md",
+]
+
 
 def test_root_makefile_exposes_standard_dev_targets():
     makefile = ROOT / "Makefile"
@@ -29,12 +40,29 @@ def test_root_makefile_exposes_standard_dev_targets():
 
 def test_pyproject_declares_project_metadata_and_dev_tools():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    project = pyproject["project"]
 
-    assert pyproject["project"]["name"] == "alibabacloud-ros-iact3"
-    assert pyproject["project"]["scripts"]["iact3"] == "iact3.__main__:sync_run"
-    assert "dependencies" in pyproject["project"]
+    assert project["name"] == "alibabacloud-ros-iact3"
+    assert project["scripts"]["iact3"] == "iact3.__main__:sync_run"
+    assert project["requires-python"] == ">=3.7,<3.15"
+    assert project["license"] == {"text": "Apache-2.0"}
+    assert "dependencies" in project
 
-    optional_dependencies = pyproject["project"]["optional-dependencies"]
-    assert optional_dependencies["binary"] == ["pyinstaller==6.11.1"]
+    classifiers = project["classifiers"]
+    for python_version in ("3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"):
+        assert f"Programming Language :: Python :: {python_version}" in classifiers
+
+    optional_dependencies = project["optional-dependencies"]
+    assert optional_dependencies["binary"] == ["pyinstaller==6.21.0; python_version >= '3.8'"]
     assert "ruff" in optional_dependencies["dev"]
-    assert "ty" in optional_dependencies["dev"]
+    assert "ty; python_version >= '3.8'" in optional_dependencies["dev"]
+
+
+def test_project_uses_pyproject_instead_of_requirements_files():
+    assert not (ROOT / "requirements.txt").exists()
+    assert not (ROOT / "requirements-dev.txt").exists()
+
+    for path in REQUIREMENTS_REFERENCING_PATHS:
+        content = path.read_text()
+        assert "requirements.txt" not in content
+        assert "requirements-dev.txt" not in content

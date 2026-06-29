@@ -8,7 +8,10 @@ def _fast_version():
         print(__version__)
         return
     try:
-        from importlib.metadata import version, PackageNotFoundError
+        if sys.version_info >= (3, 8):
+            from importlib.metadata import version, PackageNotFoundError
+        else:
+            from importlib_metadata import version, PackageNotFoundError
 
         try:
             print(version('alibabacloud-ros-iact3'))

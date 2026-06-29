@@ -10,7 +10,7 @@ Docker 的 GitHub Action 使用。
 ## 前置条件
 
 - Python 包安装需要 Python 3.7 或更高版本。
-- 使用 PyInstaller 构建 standalone binary 需要 Python 3.9 或更高版本。
+- 使用 PyInstaller 构建 standalone binary 需要 Python 3.8 或更高版本。
 - 需要具备调用 ROS 和模板中相关云服务的阿里云凭证。
 
 ## 从 PyPI 安装
@@ -38,8 +38,7 @@ iact3 --help
 
 ```bash
 python -m pip install --upgrade pip
-pip install pyinstaller==6.11.1
-pip install -r requirements.txt
+pip install ".[binary]"
 python build.py
 ```
 

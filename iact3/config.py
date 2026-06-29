@@ -2,15 +2,17 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import reduce, lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, NewType, Optional, Union, TypeVar, Type
+from typing import Any, Dict, List, Mapping, NewType, Optional, Union, TypeVar, Type, get_type_hints
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import aiofiles
+import dataclasses_jsonschema
 
 from iact3.util import yaml, CustomSafeLoader
 from alibabacloud_credentials.models import Config
@@ -23,6 +25,14 @@ from iact3.plugin.oss import OssPlugin
 from iact3.plugin.ros import StackPlugin
 
 LOG = logging.getLogger(__name__)
+
+
+if sys.version_info >= (3, 14):
+
+    def _get_class_type_hints(klass, localns=None):
+        return get_type_hints(klass, localns=localns)
+
+    dataclasses_jsonschema.get_class_type_hints = _get_class_type_hints
 
 GENERAL_CONFIG_FILE = Path(f'~/.{IAC_NAME}.yml').expanduser().resolve()
 DEFAULT_PROJECT_ROOT = Path('./').resolve()
