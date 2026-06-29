@@ -1,0 +1,74 @@
+/**
+ * Any CSS included here will be global. The classic template bundles Infima by
+ * default. Infima is a CSS framework designed to work well for content-centric
+ * websites.
+ */
+
+:root {
+  --ifm-color-primary: #2f68ff;
+  --ifm-color-primary-dark: #1555ff;
+  --ifm-color-primary-darker: #064bff;
+  --ifm-color-primary-darkest: #003bd6;
+  --ifm-color-primary-light: #497bff;
+  --ifm-color-primary-lighter: #5886ff;
+  --ifm-color-primary-lightest: #81a4ff;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #78a4ff;
+  --ifm-color-primary-dark: #5790ff;
+  --ifm-color-primary-darker: #4685ff;
+  --ifm-color-primary-darkest: #1463ff;
+  --ifm-color-primary-light: #99b8ff;
+  --ifm-color-primary-lighter: #aac3ff;
+  --ifm-color-primary-lightest: #dce7ff;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table td,
+table th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.footer.footer--dark .footer__links {
+  gap: clamp(6rem, 18vw, 18rem);
+  justify-content: center;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.footer.footer--dark .footer__col {
+  flex: 0 0 12rem;
+  max-width: 12rem;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  width: 12rem;
+}
+
+.footer.footer--dark .footer__bottom {
+  margin-top: 1rem;
+}
+
+@media (max-width: 996px) {
+  .footer.footer--dark .footer__links {
+    gap: 0;
+    justify-content: flex-start;
+  }
+
+  .footer.footer--dark .footer__col {
+    flex: 0 0 100%;
+    max-width: 100%;
+    padding-left: var(--ifm-spacing-horizontal);
+    padding-right: var(--ifm-spacing-horizontal);
+    width: 100%;
+  }
+}

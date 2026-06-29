@@ -14,3 +14,7 @@ iact3.egg-info/
 alibabacloud_ros_iact3.egg-info/
 /tests/iact3_outputs/
 .tox/
+node_modules/
+website/build/
+website/.docusaurus/
+website/.cache-loader/

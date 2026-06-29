@@ -1,6 +1,0 @@
-- [README](en/README.md)
-- [QuickStart](en/quick_start.md)
-- [Installation](en/installation.md)
-- [Config](en/config.md)
-- [Usage](en/usage.md)
-- [GitHub Action](en/action.md)

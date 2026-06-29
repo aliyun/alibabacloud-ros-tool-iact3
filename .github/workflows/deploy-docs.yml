@@ -1,0 +1,62 @@
+name: Deploy Docs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'website/**'
+      - 'README.md'
+      - '.github/workflows/deploy-docs.yml'
+
+jobs:
+  build:
+    name: Build Docusaurus
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ./website/package-lock.json
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          NPM_CONFIG_REPLACE_REGISTRY_HOST: always
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+        run: |
+          npm ci
+          test -x node_modules/.bin/docusaurus
+          ./node_modules/.bin/docusaurus --version
+        working-directory: ./website
+
+      - name: Build website
+        run: npm run build
+        working-directory: ./website
+
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./website/build
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
