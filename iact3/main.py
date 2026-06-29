@@ -73,7 +73,9 @@ def get_installed_version():
         if sys.version_info >= (3, 8):
             from importlib.metadata import version, PackageNotFoundError
         else:
-            from importlib_metadata import version, PackageNotFoundError
+            importlib_metadata = __import__('importlib_metadata')
+            version = importlib_metadata.version
+            PackageNotFoundError = importlib_metadata.PackageNotFoundError
 
         try:
             return version(IAC_PACKAGE_NAME)

@@ -132,7 +132,7 @@ class Auth(JsonSchemaMixin, allow_additional_props=False):
     def __hash__(self):
         return hash((self.name, self.location))
 
-    @lru_cache
+    @lru_cache()
     def _get_credential(self) -> Union[CredentialClient, None]:
         file_path = Path(self.location).expanduser().resolve() if self.location else DEFAULT_AUTH_FILE
         if not file_path.is_file():
@@ -264,7 +264,7 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
             }
         return template_file
 
-    @lru_cache
+    @lru_cache()
     def generate_template_args(self) -> dict:
         result = self.to_dict()
         if self.template_id or self.template_body:

@@ -1,12 +1,17 @@
 import json
 import os
+import sys
 from pathlib import Path
-from unittest import IsolatedAsyncioTestCase
 from unittest import mock
 
 from alibabacloud_ros20190910 import models as ros_models
 from iact3.logger import init_cli_logger
 from iact3.plugin.base_plugin import TeaSDKPlugin
+
+if sys.version_info >= (3, 8):
+    from unittest import IsolatedAsyncioTestCase as AsyncTestCase
+else:
+    from asynctest import TestCase as AsyncTestCase
 
 
 def _mock_price_resources():
@@ -293,7 +298,7 @@ class _FakeHttpResponse:
         yield self.body
 
 
-class BaseTest(IsolatedAsyncioTestCase):
+class BaseTest(AsyncTestCase):
     REGION_ID = 'cn-shanghai'
 
     DATA_PATH = Path(__file__).parent / 'data'
@@ -308,6 +313,8 @@ class BaseTest(IsolatedAsyncioTestCase):
                     'ALIBABA_CLOUD_ACCESS_KEY_SECRET': 'test_sk',
                 },
             ),
+            mock.patch('alibabacloud_credentials.utils.auth_util.environment_access_key_id', 'test_ak'),
+            mock.patch('alibabacloud_credentials.utils.auth_util.environment_access_key_secret', 'test_sk'),
             mock.patch.object(TeaSDKPlugin, 'send_request', new=_mock_send_request),
             mock.patch('oss2.Bucket', new=_FakeBucket),
             mock.patch('requests.get', return_value=_FakeHttpResponse(_mock_template_body())),

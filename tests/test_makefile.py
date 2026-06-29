@@ -66,3 +66,8 @@ def test_project_uses_pyproject_instead_of_requirements_files():
         content = path.read_text()
         assert "requirements.txt" not in content
         assert "requirements-dev.txt" not in content
+
+
+def test_lru_cache_decorators_are_python37_compatible():
+    for path in (ROOT / "iact3").rglob("*.py"):
+        assert "@lru_cache\n" not in path.read_text()
