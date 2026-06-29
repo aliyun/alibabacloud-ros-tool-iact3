@@ -31,7 +31,7 @@ cryptography>=49.0.0
 dataclasses-jsonschema==2.16.0
 debtcollector==2.5.0
 decorator==5.1.1
-dulwich==0.20.50
+dulwich==1.2.5
 exceptiongroup==1.0.4
 frozenlist==1.8.0
 idna==3.7
