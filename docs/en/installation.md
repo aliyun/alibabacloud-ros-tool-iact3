@@ -4,7 +4,7 @@
 
 ## Requirements
 ![Prerequisites](https://img.shields.io/badge/Prerequisites-pip-blue.svg)
- ![Python 3.7+](https://img.shields.io/badge/Python-3.7+-blue.svg)
+ ![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)
 
 The iact3 is run on requires access to an Alibaba Cloud account, this can be done by any of the following mechanisms:
 1. AliyunCli default configuration file (`~/.aliyun/config.json`)

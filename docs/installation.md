@@ -1,7 +1,7 @@
 # 安装
 ## 前置条件
 ![Prerequisites](https://img.shields.io/badge/Prerequisites-pip-blue.svg)
- ![Python 3.7+](https://img.shields.io/badge/Python-3.7+-blue.svg)
+ ![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)
 
 iact3 运行需要访问阿里云帐户，可以通过以下任一机制来完成：
 1. 使用AliyunCli默认配置文件 (`~/.aliyun/config.json`)

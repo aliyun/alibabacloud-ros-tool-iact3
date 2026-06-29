@@ -3,7 +3,7 @@
 Iact3(IaC Template Testing Tool) is a tool that tests [Alibaba Cloud ROS(Resource Orchestration Service)](https://www.alibabacloud.com/help/resource-orchestration-service) templates and  [Terraform](https://developer.hashicorp.com/terraform). It deploys your template in multiple Alibaba Cloud Regions and generates a report for each region via a simple configuration file.  
 
 # Requirements
-Python 3.7+
+Python 3.10+
 
 # Installation
 
@@ -21,7 +21,7 @@ You can build iact3 as a standalone binary using PyInstaller, which requires no 
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.10+
 - PyInstaller (`pip install pyinstaller==6.11.1`)
 - Project dependencies (`pip install -r requirements.txt`)
 
