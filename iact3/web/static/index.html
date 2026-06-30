@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iact3 - IaC Template Testing Tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=41">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h1>iact3</h1>
+            <p data-i18n="sidebar.subtitle">IaC Testing Tool</p>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-group-title" data-i18n="nav.group_main">Main</li>
+            <li><a href="#" data-page="dashboard" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span data-i18n="nav.dashboard">Dashboard</span></a></li>
+            <li><a href="#" data-page="workspace"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span data-i18n="nav.workspace">Workspace</span></a></li>
+            <li><a href="#" data-page="reports"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span data-i18n="nav.reports">Reports</span></a></li>
+            <li class="nav-group-title" data-i18n="nav.group_system">System</li>
+            <li><a href="#" data-page="settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span data-i18n="nav.settings">Settings</span></a></li>
+            <li><a href="#" data-page="help"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span data-i18n="nav.help">Help</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="lang-switcher">
+                <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+                <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Global Connection Error Banner -->
+    <div id="connection-banner" class="connection-banner hidden">
+        <span data-i18n="banner.connection_lost">Connection lost — server may be down.</span>
+        <button class="btn" onclick="checkConnection()" style="padding: 4px 12px; font-size: 12px;" data-i18n="banner.retry">Retry</button>
+    </div>
+
+    <main class="content">
+        <!-- Dashboard Page -->
+        <div id="page-dashboard" class="page active">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="dashboard.title">Dashboard</h2>
+                    <p class="page-desc" data-i18n="dashboard.desc">Monitor and manage all your IaC test runs. Runs auto-refresh every 5 seconds.</p>
+                </div>
+                <button class="btn btn-primary" onclick="refreshRuns()" data-i18n="dashboard.refresh">Refresh</button>
+            </div>
+            <!-- Onboarding Welcome Card (shown when first visit) -->
+            <div id="onboarding-card" class="onboarding-card hidden">
+                <div class="onboarding-header">
+                    <div class="onboarding-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    </div>
+                    <div>
+                        <h3 data-i18n="onboarding.welcome">Welcome to iact3!</h3>
+                        <p class="onboarding-subtitle" data-i18n="onboarding.welcome_desc">Get started in 4 simple steps:</p>
+                    </div>
+                </div>
+                <ol class="onboarding-steps">
+                    <li data-i18n="onboarding.step1">Configure your Alibaba Cloud credentials in Settings</li>
+                    <li data-i18n="onboarding.step2">Open Workspace and paste or upload your template</li>
+                    <li data-i18n="onboarding.step3">Use Analyze to validate, preview, and estimate costs</li>
+                    <li data-i18n="onboarding.step4">Run the full test to deploy and verify</li>
+                </ol>
+                <div class="onboarding-actions">
+                    <button class="btn btn-primary" onclick="navigateTo('settings'); dismissOnboarding();" data-i18n="onboarding.goto_settings">Configure Credentials</button>
+                    <button class="btn" onclick="navigateTo('workspace'); dismissOnboarding();" data-i18n="onboarding.goto_workspace">Open Workspace</button>
+                    <button class="onboarding-dismiss" onclick="dismissOnboarding()" data-i18n="onboarding.dismiss">Got it, dismiss</button>
+                </div>
+            </div>
+            <!-- Dashboard Stats Cards -->
+            <div id="dashboard-stats" class="dashboard-stats"></div>
+            <!-- Quick Start Guide (shown when no runs exist) -->
+            <div id="quick-start-guide" class="quick-start hidden">
+                <h3 data-i18n="dashboard.quick_start">Quick Start</h3>
+                <ol>
+                    <li data-i18n-html="dashboard.qs1">Go to <strong>Settings</strong> and configure your Alibaba Cloud credentials (Access Key).</li>
+                    <li data-i18n-html="dashboard.qs2">Optionally set default values for Config File, Template Path, and Regions.</li>
+                    <li data-i18n-html="dashboard.qs3">Use <strong>Analyze</strong> to validate, preview resources, estimate costs, and generate policies — all from one page.</li>
+                    <li data-i18n-html="dashboard.qs4">Use <strong>Run Test</strong> to execute the full test suite.</li>
+                    <li data-i18n-html="dashboard.qs5">Check <strong>Reports</strong> for detailed output files.</li>
+                </ol>
+                <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);" data-i18n-html="dashboard.qs_help">New to iact3? Check the <a href="#" onclick="event.preventDefault(); navigateTo('help')" style="color: var(--primary);">Help</a> page for a detailed guide.</p>
+            </div>
+            <!-- Analysis History -->
+            <div class="dashboard-grid">
+                <!-- Projects Section -->
+                <div class="dashboard-card project-section">
+                    <div class="dashboard-card-header">
+                        <h3 data-i18n="dashboard.projects_title">Projects</h3>
+                        <button class="btn btn-sm" onclick="loadProjectList()" data-i18n="dashboard.refresh" data-i18n-title="dashboard.refresh" title="Refresh">Refresh</button>
+                    </div>
+                    <p class="dashboard-card-desc" data-i18n="dashboard.projects_desc">Manage template + config pairs for quick access.</p>
+                    <div class="project-create-row">
+                        <input type="text" id="new-project-name" data-i18n-placeholder="settings.new_project_ph" placeholder="New project name...">
+                        <button type="button" class="btn btn-primary" onclick="createProject()" data-i18n="settings.create_project">+ Create</button>
+                    </div>
+                    <div id="project-list" class="project-list"></div>
+                    <div id="project-list-pagination" class="card-pagination"></div>
+                </div>
+
+                <!-- Test Runs Tag Section -->
+                <div class="dashboard-card runs-tag-section">
+                    <div class="dashboard-card-header">
+                        <h3 data-i18n="dashboard.runs_title">Test Runs</h3>
+                        <div class="history-toolbar">
+                            <select id="runs-project-filter" class="history-filter-select" onchange="filterRunsBy()">
+                                <option value="" data-i18n="dashboard.runs_filter_all_projects">All Projects</option>
+                            </select>
+                            <select id="runs-status-filter" class="history-filter-select" onchange="filterRunsBy()">
+                                <option value="" data-i18n="dashboard.runs_filter_all_status">All Status</option>
+                                <option value="running" data-i18n="status.running">Running</option>
+                                <option value="completed" data-i18n="status.completed">Completed</option>
+                                <option value="failed" data-i18n="status.failed">Failed</option>
+                                <option value="cancelled" data-i18n="status.cancelled">Cancelled</option>
+                            </select>
+                            <select id="runs-time-filter" class="history-filter-select" onchange="filterRunsBy()">
+                                <option value="" data-i18n="dashboard.runs_filter_all_time">All Time</option>
+                                <option value="today" data-i18n="dashboard.runs_filter_today">Today</option>
+                                <option value="week" data-i18n="dashboard.runs_filter_week">This Week</option>
+                                <option value="month" data-i18n="dashboard.runs_filter_month">This Month</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="runs-tag-list" class="runs-tag-list"></div>
+                    <div id="runs-tag-pagination" class="card-pagination"></div>
+                </div>
+
+                <!-- History Section -->
+                <div class="dashboard-card history-section">
+                    <div class="dashboard-card-header">
+                        <h3 data-i18n="dashboard.history_title">Analysis History</h3>
+                        <div class="history-toolbar">
+                            <select id="history-type-filter" class="history-filter-select" onchange="filterHistoryByType(this.value)">
+                                <option value="" data-i18n="dashboard.filter_all_types">All Types</option>
+                                <option value="validate" data-i18n="analyze.validate">Validate</option>
+                                <option value="preview" data-i18n="analyze.preview">Preview</option>
+                                <option value="cost" data-i18n="analyze.cost">Cost</option>
+                                <option value="policy" data-i18n="analyze.policy">Policy</option>
+                            </select>
+                            <select id="history-project-filter" class="history-filter-select" onchange="filterHistory(this.value)">
+                                <option value="" data-i18n="dashboard.history_filter_all">All Projects</option>
+                            </select>
+                            <button class="btn btn-sm" onclick="loadHistory()" data-i18n="dashboard.refresh">Refresh</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearHistory()" data-i18n="dashboard.clear_history">Clear</button>
+                        </div>
+                    </div>
+                    <div id="history-list" class="history-list"></div>
+                    <div id="history-pagination" class="card-pagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspace Page (Analyze + Run Test combined) -->
+        <div id="page-workspace" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="workspace.title">Workspace</h2>
+                    <p class="page-desc" data-i18n="workspace.desc">Analyze your template or run the full test — all from one place.</p>
+                </div>
+            </div>
+            <form id="workspace-form" class="form-card">
+                <!-- Credential Warning Banner -->
+                <div id="workspace-credential-warning" class="credential-warning hidden">
+                    <svg class="warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span class="warning-text" data-i18n="credential.warning">Cloud credentials are not configured.</span>
+                    <span class="warning-action"><button type="button" class="btn" onclick="navigateTo('settings')" data-i18n="credential.warning_action">Go to Settings</button></span>
+                </div>
+                <!-- Project Selector -->
+                <div class="project-selector">
+                    <label class="project-selector-label" data-i18n="project.selector_label">Project</label>
+                    <div class="project-selector-row">
+                        <div class="project-selector">
+                            <div class="project-input-wrap">
+                                <input type="text" id="workspace-project-name" name="project_name" class="project-name-input" data-i18n-placeholder="project.name_ph" placeholder="Project name..." autocomplete="off" oninput="_onProjectInput('workspace')">
+                                <span class="project-dropdown-arrow" data-tooltip="查看已有项目" onmousedown="_toggleProjectDropdown(event,'workspace')">&#9662;</span>
+                            </div>
+                            <div class="project-dropdown" id="workspace-project-dropdown"></div>
+                        </div>
+                        <div class="project-selector-btn-group">
+                            <button type="button" class="btn btn-save-project" onclick="saveCurrentProject('workspace')" data-i18n="editor.save" data-i18n-title="project.save_title" title="Save as project">Save</button>
+                            <button type="button" class="btn btn-clear-form" onclick="clearPageForm('workspace')" data-i18n="project.clear_btn" data-i18n-title="project.clear_title" title="Clear form">Clear</button>
+                            <button type="button" class="btn btn-refresh-projects" onclick="loadProjectSelectors()" data-i18n="dashboard.refresh" data-i18n-title="dashboard.refresh" title="Refresh">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Editor (collapsible) -->
+                <div class="collapsible-section open">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-arrow">&#9654;</span>
+                        <span data-i18n="workspace.template">Template</span>
+                        <span class="collapsible-summary" id="workspace-template-summary"></span>
+                    </div>
+                    <div class="collapsible-body">
+                        <div class="form-group">
+                            <p class="field-hint" data-i18n="workspace.template_hint">(paste or upload your ROS/Terraform template content)</p>
+                            <div class="file-editor" data-editor-id="workspace-template" data-editor-type="template">
+                                <textarea class="fe-content" id="workspace-template-content" spellcheck="false" data-i18n-placeholder="editor.content_ph" placeholder="Paste or type your template content here..."></textarea>
+                                <input type="hidden" name="template" class="fe-path-value">
+                                <div class="fe-empty-hint" id="workspace-template-empty-hint"></div>
+                                <div class="fe-toolbar">
+                                    <div class="fe-actions">
+                                        <button type="button" class="fe-action-btn" onclick="fileEditor.validate('workspace-template')" data-i18n="editor.validate">Validate</button>
+                                        <label class="fe-action-btn"><input type="file" accept=".json,.yaml,.yml,.tf" onchange="fileEditor.handleUpload(this,'workspace-template')" hidden><span data-i18n="editor.upload">Upload</span></label>
+                                    </div>
+                                    <span class="fe-validation" id="workspace-template-validation"></span>
+                                    <span class="fe-info" id="workspace-template-info"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Config Editor (collapsible) -->
+                <div class="collapsible-section open">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-arrow">&#9654;</span>
+                        <span data-i18n="workspace.config">Config File</span>
+                        <span class="collapsible-summary" id="workspace-config-summary"></span>
+                    </div>
+                    <div class="collapsible-body">
+                        <div class="form-group">
+                            <p class="field-hint" data-i18n="workspace.config_hint">(optional — defines test parameters; auto-loaded from project)</p>
+                            <div class="file-editor" data-editor-id="workspace-config" data-editor-type="config" data-save-path=".iact3.yml">
+                                <textarea class="fe-content" id="workspace-config-content" spellcheck="false" data-i18n-placeholder="editor.config_ph" placeholder="Paste or type your config content here..."></textarea>
+                                <input type="hidden" name="config_file" class="fe-path-value">
+                                <div class="fe-empty-hint" id="workspace-config-empty-hint"></div>
+                                <div class="fe-toolbar">
+                                    <div class="fe-actions">
+                                        <button type="button" class="fe-action-btn" onclick="fileEditor.validate('workspace-config')" data-i18n="editor.validate">Validate</button>
+                                        <label class="fe-action-btn"><input type="file" accept=".yml,.yaml" onchange="fileEditor.handleUpload(this,'workspace-config')" hidden><span data-i18n="editor.upload">Upload</span></label>
+                                    </div>
+                                    <span class="fe-validation" id="workspace-config-validation"></span>
+                                    <span class="fe-info" id="workspace-config-info"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Regions -->
+                <div class="form-group">
+                    <label><span data-i18n="workspace.regions">Regions</span> <span class="hint" data-i18n="workspace.regions_hint">(needed for Preview, Cost &amp; Run Test)</span></label>
+                    <input type="hidden" name="regions" class="region-hidden">
+                    <div id="workspace-form-region-select" class="region-select">
+                        <div class="region-select-trigger" onclick="regionSelect._toggleDropdown('workspace-form')">
+                            <span class="region-select-placeholder" data-i18n="regions.loading">Loading regions...</span>
+                            <span class="arrow">▼</span>
+                        </div>
+                        <div class="region-select-dropdown"></div>
+                    </div>
+                </div>
+
+                <!-- Action zone: Analyze (left) + Run (right) -->
+                <div class="workspace-action-zone">
+                    <!-- Analyze actions -->
+                    <div class="workspace-action-panel">
+                        <div class="workspace-panel-title" data-i18n="workspace.analyze_panel">Analyze</div>
+                        <div class="analyze-actions">
+                            <button type="button" class="btn btn-action" data-action="validate" onclick="runAnalysis('validate')" data-i18n="analyze.validate">Validate</button>
+                            <button type="button" class="btn btn-action" data-action="preview" onclick="runAnalysis('preview')" data-i18n="analyze.preview">Preview</button>
+                            <button type="button" class="btn btn-action" data-action="cost" onclick="runAnalysis('cost')" data-i18n="analyze.cost">Cost</button>
+                            <button type="button" class="btn btn-action" data-action="policy" onclick="runAnalysis('policy')" data-i18n="analyze.policy">Policy</button>
+                            <button type="button" class="btn btn-action btn-action-all" onclick="runAllAnalyses()" data-i18n="analyze.run_all">Run All</button>
+                        </div>
+                    </div>
+
+                    <div class="workspace-action-divider"></div>
+
+                    <!-- Run Test actions -->
+                    <div class="workspace-action-panel">
+                        <div class="workspace-panel-title" data-i18n="workspace.run_panel">Run Test</div>
+                        <div class="form-row">
+                            <label class="checkbox-label" data-i18n-title="run.no_delete_title" title="Do not delete stacks after test">
+                                <input type="checkbox" name="no_delete"> <span data-i18n="run.no_delete">No Delete</span>
+                            </label>
+                            <label class="checkbox-label" data-i18n-title="run.keep_failed_title" title="Keep stacks that failed for debugging">
+                                <input type="checkbox" name="keep_failed"> <span data-i18n="run.keep_failed">Keep Failed</span>
+                            </label>
+                            <label class="checkbox-label" data-i18n-title="run.dont_wait_title" title="Do not wait for stack deletion to complete">
+                                <input type="checkbox" name="dont_wait_for_delete"> <span data-i18n="run.dont_wait">Don't Wait for Delete</span>
+                            </label>
+                        </div>
+                        <!-- Advanced options (collapsible) -->
+                        <div class="collapsible-section" style="margin-top:8px">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-arrow">&#9654;</span>
+                                <span data-i18n="run.advanced">Advanced Options</span>
+                            </div>
+                            <div class="collapsible-body collapsed">
+                                <div class="form-group" style="margin-top:8px">
+                                    <label><span data-i18n="run.test_name">Test Name</span> <span class="hint" data-i18n="run.test_name_hint">(optional)</span></label>
+                                    <input type="text" name="name" data-i18n-placeholder="run.test_name_ph" placeholder="my-test-run">
+                                </div>
+                                <div class="form-group">
+                                    <label><span data-i18n="run.test_names">Test Names</span> <span class="hint" data-i18n="run.test_names_hint">(comma-separated)</span></label>
+                                    <input type="text" name="test_names" data-i18n-placeholder="run.test_names_ph" placeholder="test1,test2">
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="run.log_format">Log Format</label>
+                                    <select name="log_format">
+                                        <option value="" data-i18n="run.log_default">Default (txt)</option>
+                                        <option value="json" data-i18n="run.log_format_json">JSON</option>
+                                        <option value="xml" data-i18n="run.log_format_xml">XML</option>
+                                        <option value="json,xml" data-i18n="run.log_format_json_xml">JSON + XML</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="run-validation-msg" class="run-validation-msg hidden"></div>
+                        <button type="submit" class="btn btn-primary btn-large" style="margin-top:12px" data-i18n="run.start_btn">Start Test</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Results area: tabbed display -->
+            <div id="analyze-results" class="analyze-results hidden">
+                <div class="result-tabs">
+                    <button class="result-tab" data-tab="validate" onclick="switchResultTab('validate')" data-i18n="analyze.validate">Validate</button>
+                    <button class="result-tab" data-tab="preview" onclick="switchResultTab('preview')" data-i18n="analyze.preview">Preview</button>
+                    <button class="result-tab" data-tab="cost" onclick="switchResultTab('cost')" data-i18n="analyze.cost">Cost</button>
+                    <button class="result-tab" data-tab="policy" onclick="switchResultTab('policy')" data-i18n="analyze.policy">Policy</button>
+                </div>
+                <div class="result-tab-body" id="result-tab-body"></div>
+            </div>
+        </div>
+
+        <!-- Reports Page -->
+        <div id="page-reports" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="reports.title">Reports &amp; Outputs</h2>
+                    <p class="page-desc" data-i18n="reports.desc">Browse, preview, and manage all generated output files (reports, logs, test results).</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span id="reports-total-size" style="font-size: 13px; color: var(--text-muted);"></span>
+                    <button class="btn" onclick="loadReports()" data-i18n="reports.refresh">Refresh</button>
+                </div>
+            </div>
+
+            <!-- Reports Filter Toolbar -->
+            <div class="reports-filter-bar">
+                <select id="reports-category-filter" class="history-filter-select" onchange="filterReports()">
+                    <option value="" data-i18n="reports.filter_all_categories">All Categories</option>
+                    <option value="report" data-i18n="reports.cat_report">Report</option>
+                    <option value="result" data-i18n="reports.cat_result">Result</option>
+                    <option value="log" data-i18n="reports.cat_log">Log</option>
+                    <option value="hook" data-i18n="reports.cat_hook">Hook</option>
+                    <option value="other" data-i18n="reports.cat_other">Other</option>
+                </select>
+                <select id="reports-time-filter" class="history-filter-select" onchange="filterReports()">
+                    <option value="" data-i18n="dashboard.runs_filter_all_time">All Time</option>
+                    <option value="today" data-i18n="dashboard.runs_filter_today">Today</option>
+                    <option value="week" data-i18n="dashboard.runs_filter_week">This Week</option>
+                    <option value="month" data-i18n="dashboard.runs_filter_month">This Month</option>
+                </select>
+                <select id="reports-type-filter" class="history-filter-select" onchange="filterReports()">
+                    <option value="" data-i18n="reports.filter_all_types">All Types</option>
+                    <option value="html" data-i18n="reports.type_html">HTML</option>
+                    <option value="json" data-i18n="reports.type_json">JSON</option>
+                    <option value="txt" data-i18n="reports.type_txt">TXT</option>
+                    <option value="other" data-i18n="reports.type_other">Other</option>
+                </select>
+                <input type="text" id="reports-search" class="reports-search-input" data-i18n-placeholder="reports.search_ph" placeholder="Search by filename..." oninput="filterReports()">
+                <button class="btn btn-sm" onclick="clearReportFilters()" data-i18n="reports.clear_filters">Clear</button>
+            </div>
+
+            <div id="reports-list" class="reports-table-wrap">
+                <div class="empty-state" data-i18n="reports.loading">Loading reports...</div>
+            </div>
+
+            <!-- Batch delete toolbar (shown when items selected) -->
+            <div id="batch-toolbar" class="batch-toolbar hidden">
+                <span id="batch-count" data-i18n="reports.files_selected">0 files selected</span>
+                <button class="btn btn-sm btn-outline-danger" onclick="batchDeleteSelected()" data-i18n="reports.delete_selected">Delete Selected</button>
+                <button class="btn" onclick="clearSelection()" data-i18n="reports.cancel">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="page-settings" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="settings.title">Settings</h2>
+                    <p class="page-desc" data-i18n="settings.desc">Configure credentials and default values used across all pages. Settings persist on the server.</p>
+                </div>
+                <div id="settings-status-badge" class="settings-badge"></div>
+            </div>
+
+            <form id="settings-form" class="form-card">
+                <div class="settings-section">
+                    <h3 class="settings-section-title" data-i18n="settings.credentials">Credentials</h3>
+                    <p class="settings-section-desc" data-i18n="settings.credentials_desc">Alibaba Cloud credentials used for all API calls (Validate, Preview, Cost, Policy).</p>
+                    <div class="form-group">
+                        <label data-i18n="settings.ak_id">Access Key ID</label>
+                        <input type="text" name="access_key_id" data-i18n-placeholder="settings.ak_id_ph" placeholder="LTAI..." autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="settings.ak_secret">Access Key Secret</label>
+                        <input type="password" name="access_key_secret" data-i18n-placeholder="settings.ak_secret_ph" placeholder="Access Key Secret" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label><span data-i18n="settings.security_token">Security Token</span> <span style="color: var(--text-muted); font-weight: normal;" data-i18n="settings.security_token_optional">(optional, for STS)</span></label>
+                        <input type="text" name="security_token" data-i18n-placeholder="settings.sts_ph" placeholder="STS token (optional)">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title" data-i18n="settings.defaults">Defaults</h3>
+                    <p class="settings-section-desc" data-i18n="settings.defaults_desc">Default values that will be auto-filled in Validate, Preview, Cost, Policy pages.</p>
+                    <div class="form-group">
+                        <label data-i18n="settings.regions_label">Regions (comma separated)</label>
+                        <input type="hidden" name="regions" class="region-hidden">
+                        <div id="settings-form-region-select" class="region-select">
+                            <div class="region-select-trigger" onclick="regionSelect._toggleDropdown('settings-form')">
+                                <span class="region-select-placeholder" data-i18n="regions.loading">Loading regions...</span>
+                                <span class="arrow">▼</span>
+                            </div>
+                            <div class="region-select-dropdown"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="submit" class="btn btn-primary btn-save-settings" data-i18n="settings.save">Save Settings</button>
+                    <button type="button" class="btn btn-reload-settings" onclick="loadSettings()" data-i18n="settings.reload">Reload</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Help Page -->
+        <div id="page-help" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="help.title">Help &amp; Guide</h2>
+                    <p class="page-desc" data-i18n="help.desc">Everything you need to know to get started with iact3.</p>
+                </div>
+            </div>
+
+            <!-- What is iact3 -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-intro')">
+                    <h3 data-i18n="help.what_is">What is iact3?</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-intro" data-i18n-html="help.what_is_body">
+                </div>
+            </div>
+
+            <!-- Prerequisites & Installation -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-install')">
+                    <h3 data-i18n="help.install">Prerequisites &amp; Installation</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-install">
+                    <p data-i18n-html="help.prerequisite">iact3 is developed in Python. Make sure you have <strong>Python 3.7+</strong> installed.</p>
+
+                    <h4 data-i18n="help.install_pip_title">Install via pip (recommended)</h4>
+                    <pre class="guide-code">pip install alibabacloud-ros-iact3</pre>
+
+                    <h4 data-i18n="help.install_src_title">Install from Source</h4>
+                    <pre class="guide-code">git clone https://github.com/aliyun/alibabacloud-ros-tool-iact3.git
+cd alibabacloud-ros-tool-iact3
+python setup.py install</pre>
+                </div>
+            </div>
+
+            <!-- Configure Credentials -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-credentials')">
+                    <h3 data-i18n="help.credentials">Configure Credentials</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-credentials">
+                    <p data-i18n-html="help.credentials_intro">iact3 supports three ways to configure Alibaba Cloud credentials:</p>
+
+                    <h4 data-i18n="help.cred_webui_title">Web UI (Recommended)</h4>
+                    <p data-i18n-html="help.cred_webui_desc">Go to Settings, enter your Access Key ID and Secret, then click Save Settings.</p>
+
+                    <h4 data-i18n="help.cred_cli_title">Alibaba Cloud CLI</h4>
+                    <p data-i18n-html="help.cred_cli_desc">If you have the CLI tool installed, iact3 can use its config file directly.</p>
+                    <pre class="guide-code">{
+  "current": "default",
+  "profiles": [
+    {
+      "name": "default",
+      "mode": "AK",
+      "access_key_id": "&lt;ALIBABA_CLOUD_ACCESS_KEY_ID&gt;",
+      "access_key_secret": "&lt;ALIBABA_CLOUD_ACCESS_KEY_SECRET&gt;"
+    }
+  ]
+}</pre>
+
+                    <h4 data-i18n="help.cred_sdk_title">Alibaba Cloud SDK Credentials</h4>
+                    <p data-i18n-html="help.cred_sdk_desc">Uses the SDK credentials file.</p>
+                    <pre class="guide-code">[default]
+enable=true
+type=access_key
+access_key_id=&lt;ALIBABA_CLOUD_ACCESS_KEY_ID&gt;
+access_key_secret=&lt;ALIBABA_CLOUD_ACCESS_KEY_SECRET&gt;
+
+[client1]
+enable=true
+type=ecs_ram_role
+role_name=&lt;ecs_ram_role_name&gt;
+
+[client2]
+enable=true
+type=ram_role_arn
+access_key_id=&lt;ALIBABA_CLOUD_ACCESS_KEY_ID&gt;
+access_key_secret=&lt;ALIBABA_CLOUD_ACCESS_KEY_SECRET&gt;
+role_arn=&lt;ram_role_arn&gt;
+role_session_name=&lt;role_session_name&gt;</pre>
+
+                    <h4 data-i18n="help.cred_env_title">Environment Variables</h4>
+                    <p data-i18n-html="help.cred_env_desc">Set the following environment variables before starting iact3:</p>
+                    <pre class="guide-code">export ALIBABA_CLOUD_ACCESS_KEY_ID=&lt;your-access-key-id&gt;
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=&lt;your-access-key-secret&gt;</pre>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-start')">
+                    <h3 data-i18n="help.getting_started">Getting Started (Step by Step)</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-start">
+                    <div class="guide-step">
+                        <span class="guide-step-num">1</span>
+                        <div>
+                            <strong class="guide-step-label" data-i18n="help.step1_title">Prepare Your Template</strong>
+                            <p data-i18n-html="help.step1_body">Have a ROS/Terraform template ready.</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <span class="guide-step-num">2</span>
+                        <div>
+                            <strong class="guide-step-label" data-i18n="help.step2_title">Open the Workspace</strong>
+                            <p data-i18n-html="help.step2_body">Paste or upload your template into the editor.</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <span class="guide-step-num">3</span>
+                        <div>
+                            <strong class="guide-step-label" data-i18n="help.step3_title">Analyze Your Template</strong>
+                            <p data-i18n-html="help.step3_body">Use Analyze to validate, preview, estimate costs.</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <span class="guide-step-num">4</span>
+                        <div>
+                            <strong class="guide-step-label" data-i18n="help.step4_title">Run the Full Test</strong>
+                            <p data-i18n-html="help.step4_body">Deploy the template and verify everything works.</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <span class="guide-step-num">5</span>
+                        <div>
+                            <strong class="guide-step-label" data-i18n="help.step5_title">Check Reports</strong>
+                            <p data-i18n-html="help.step5_body">View detailed logs and test results.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Config File Guide -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-config')">
+                    <h3 data-i18n="help.config_guide">Configuration File Guide (.iact3.yml)</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-config">
+                    <p data-i18n-html="help.config_intro">The config file <code>.iact3.yml</code> defines how iact3 tests your template. It has three sections:</p>
+
+                    <h4 data-i18n="help.config_minimal">Minimal Example</h4>
+                    <pre class="guide-code">project:
+  name: my-first-test
+  template_config:
+    template_url: 'https://xxx/create-ecs.yaml'
+  regions:
+    - cn-hangzhou
+    - cn-beijing
+tests:
+  test-name-1:
+    parameters:
+      ZoneId: $[iact3-auto]
+      InstanceType: ecs.g6e.large
+  test-name-2:
+    parameters:
+      ZoneId: $[iact3-auto]
+      InstanceType: ecs.c6.large</pre>
+
+                    <h4 data-i18n="help.config_full">Full Example</h4>
+                    <pre class="guide-code">general:                    # Global defaults (optional)
+  auth:                     # Aliyun CLI credentials
+    name: default
+    location: ~/.aliyun/config.json
+  oss_config:               # OSS bucket for uploading results
+    bucket_name: my-bucket
+    bucket_region: cn-hangzhou
+  parameters:               # Shared parameters for all tests
+    VpcId: $[iact3-auto]    # Auto-generate VPC for testing
+    VSwitchId: $[iact3-auto]
+
+project:                    # Project settings
+  name: my-project
+  regions:
+    - cn-hangzhou
+    - cn-beijing
+  template_config:          # Specify template location
+    template_location: templates/ecs.yaml
+  parameters:
+    InstanceChargeType: PostPaid
+    Password: $[iact3-auto] # Auto-generate password
+  tags:
+    environment: test
+
+tests:                      # Test cases (required)
+  default:                  # Test name 1
+    parameters:
+      InstanceType: ecs.g6.large
+    regions:
+      - cn-hangzhou
+    hooks:                  # Lifecycle hooks
+      pre-create:
+        execute_time: PreCreate   # PreCreate | PostCreate | PreDelete | PostDelete
+        execute_command: [echo, hello]
+  large-instance:           # Test name 2
+    parameters:
+      InstanceType: ecs.g6.2xlarge</pre>
+
+                    <h4 data-i18n="help.config_fields">Key Fields Explained</h4>
+                    <div data-i18n-html="help.config_fields_table">
+                        <table class="guide-table">
+                            <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>tests</code></td><td>Yes</td><td>Test cases. Each test defines parameters, regions, hooks, etc.</td></tr>
+                                <tr><td><code>project.name</code></td><td>No</td><td>Project name, used in output file naming.</td></tr>
+                                <tr><td><code>project.regions</code></td><td>No</td><td>Default regions for testing. Can be overridden per test.</td></tr>
+                                <tr><td><code>project.template_config</code></td><td>No</td><td>Specify template via <code>template_location</code>, <code>template_url</code>, or <code>template_id</code>.</td></tr>
+                                <tr><td><code>project.parameters</code></td><td>No</td><td>Parameter key-values passed to the template.</td></tr>
+                                <tr><td><code>general.auth</code></td><td>No</td><td>Alibaba Cloud CLI credentials config (name &amp; location of config.json).</td></tr>
+                                <tr><td><code>general.oss_config</code></td><td>No</td><td>OSS bucket config for uploading test results.</td></tr>
+                                <tr><td><code>general.parameters</code></td><td>No</td><td>Global parameters. Unlike other fields, <em>more general</em> values take priority for parameters.</td></tr>
+                                <tr><td><code>$[iact3-auto]</code></td><td>-</td><td>Special value: iact3 auto-creates base resources (VPC, VSwitch, etc.) for testing.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4 data-i18n="help.config_locations">Notes on Config File Usage in Web UI</h4>
+                    <p data-i18n-html="help.config_project">In the Web UI, you can paste config content directly into the Config File editor.</p>
+                    <p data-i18n-html="help.config_global">Save content as a Project to store template and config together.</p>
+                    <p data-i18n-html="help.config_auto">If the Config File editor is empty when you start a test, a minimal config is auto-generated.</p>
+                </div>
+            </div>
+
+            <!-- Features Explained -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-features')">
+                    <h3 data-i18n="help.features">Analyze Features Explained</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-features" data-i18n-html="help.features_table">
+                    <table class="guide-table">
+                        <thead><tr><th>Feature</th><th>What it Does</th><th>Needs Regions?</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>Validate</strong></td><td>Checks template syntax and structure. Returns errors if the template is invalid.</td><td>No</td></tr>
+                            <tr><td><strong>Preview</strong></td><td>Shows what cloud resources will be created, including resource types, properties, and dependencies.</td><td>Yes</td></tr>
+                            <tr><td><strong>Cost</strong></td><td>Estimates the price of resources that the template will create (hourly/monthly costs).</td><td>Yes</td></tr>
+                            <tr><td><strong>Policy</strong></td><td>Generates the RAM (Resource Access Management) policy needed to deploy the template.</td><td>No</td></tr>
+                            <tr><td><strong>Run All</strong></td><td>Runs all four analyses above in sequence.</td><td>-</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Run Test Options -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-runtest')">
+                    <h3 data-i18n="help.run_test_options">Run Test Options</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-runtest" data-i18n-html="help.runtest_table">
+                </div>
+            </div>
+
+            <!-- Web UI Features -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-webui')">
+                    <h3 data-i18n="help.webui_features">Web UI Features</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-webui" data-i18n-html="help.webui_body">
+                </div>
+            </div>
+
+            <!-- CLI Commands Reference -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-cli')">
+                    <h3 data-i18n="help.cli_commands">CLI Commands Reference</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-cli">
+                    <p data-i18n-html="help.cli_intro">Besides the web UI, iact3 can be used via CLI.</p>
+                    <div data-i18n-html="help.cli_table">
+                        <table class="guide-table">
+                            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>iact3 test run</code></td><td>Run the full test suite — create stacks, test, and auto-cleanup.</td></tr>
+                                <tr><td><code>iact3 validate</code></td><td>Validate template syntax and structure.</td></tr>
+                                <tr><td><code>iact3 preview</code></td><td>Preview what resources will be created.</td></tr>
+                                <tr><td><code>iact3 cost</code></td><td>Estimate resource pricing (inquiry).</td></tr>
+                                <tr><td><code>iact3 policy</code></td><td>Query the RAM policy required for deployment.</td></tr>
+                                <tr><td><code>iact3 list</code></td><td>List all test runs and their statuses.</td></tr>
+                                <tr><td><code>iact3 delete</code></td><td>Delete a specific test run.</td></tr>
+                                <tr><td><code>iact3 -h</code></td><td>Show help info for all available commands.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- $[iact3-auto] Explained -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-auto')">
+                    <h3 data-i18n="help.auto_param">About $[iact3-auto] Auto Parameters</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-auto" data-i18n-html="help.auto_param_body">
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="guide-card">
+                <div class="guide-card-header" onclick="toggleGuide('guide-faq')">
+                    <h3 data-i18n="help.faq">Frequently Asked Questions</h3>
+                    <span class="guide-toggle">▼</span>
+                </div>
+                <div class="guide-card-body" id="guide-faq">
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq1_q">Q: What template formats are supported?</strong>
+                        <p data-i18n-html="help.faq1_a">A: ROS templates (<code>.json</code>, <code>.yaml</code>, <code>.yml</code>) and Terraform templates (<code>.tf</code>).</p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq2_q">Q: What does <code>$[iact3-auto]</code> mean?</strong>
+                        <p data-i18n-html="help.faq2_a">A: It tells iact3 to automatically create base resources (VPC, VSwitch, Security Group, etc.) for testing.</p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq3_q">Q: Where are the test results stored?</strong>
+                        <p data-i18n-html="help.faq3_a">A: In the <code>iact3_outputs/</code> directory.</p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq4_q">Q: Do Validate/Policy need regions?</strong>
+                        <p data-i18n-html="help.faq4_a">A: No. Only Preview and Cost require regions to be specified.</p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq5_q">Q: Can I use environment variables for credentials?</strong>
+                        <p data-i18n-html="help.faq5_a">A: Yes. Set <code>ALIBABA_CLOUD_ACCESS_KEY_ID</code> and <code>ALIBABA_CLOUD_ACCESS_KEY_SECRET</code> before starting the server.</p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq6_q">Q: How do I start the web server?</strong>
+                        <p data-i18n-html="help.faq6_a">A: Run: <code>iact3 server start --host 0.0.0.0 --port 8088</code></p>
+                    </div>
+                    <div class="faq-item">
+                        <strong class="faq-item-q" data-i18n-html="help.faq7_q">Q: I submitted a test but no stacks were created — why?</strong>
+                        <p data-i18n-html="help.faq7_a">A: Make sure at least one region is selected. Also ensure you have valid credentials saved in <strong>Settings</strong>. Check <strong>Dashboard</strong> and click the run to see detailed error logs.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Help Page Quick Actions -->
+            <div class="help-actions">
+                <button class="btn btn-primary" onclick="navigateTo('workspace')" data-i18n="help.action_workspace">Open Workspace</button>
+                <button class="btn" onclick="navigateTo('settings')" data-i18n="help.action_settings">Go to Settings</button>
+            </div>
+        </div>
+
+        <!-- Run Detail Page -->
+        <div id="page-detail" class="page">
+            <div class="page-header">
+                <h2 data-i18n="detail.title">Test Run Detail</h2>
+                <div id="detail-header-actions" class="detail-header-actions">
+                    <button class="btn" onclick="navigateTo('dashboard')" data-i18n="detail.back">Back</button>
+                </div>
+            </div>
+            <div id="run-detail" class="detail-container"></div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- File Viewer Modal -->
+    <div id="file-modal" class="modal-overlay hidden" onclick="closeModalOutside(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="btn-icon modal-back-btn hidden" onclick="closeFileModal()" id="modal-back-btn" data-i18n="detail.back" data-i18n-title="detail.back" title="Back">Back</button>
+                <h3 id="modal-filename" class="modal-title">filename</h3>
+                <div class="modal-actions">
+                    <button class="btn btn-copy" onclick="copyModalContent()" id="modal-copy-btn" data-i18n="modal.copy">Copy</button>
+                    <button class="btn-icon" onclick="closeFileModal()" data-i18n="modal.close" data-i18n-title="modal.close" title="Close">Close</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="modal-loading" class="modal-loading hidden">
+                    <div class="spinner"></div> <span data-i18n="modal.loading">Loading...</span>
+                </div>
+                <pre id="modal-content" class="modal-pre"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+    <script src="/static/i18n.js?v=41"></script>
+    <script src="/static/app.js?v=55"></script>
+</body>
+</html>

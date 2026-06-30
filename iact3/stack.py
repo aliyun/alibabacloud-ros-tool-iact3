@@ -584,8 +584,8 @@ class Stack:
         if not props:
             if self.id:
                 props = await self.plugin.get_stack(self.id, output_option='Disabled') or {}
-        self.status = props.get('Status')
-        self.status_reason = props.get('StatusReason')
+        self.status = props.get('Status') or self._status  # preserve previous status if API returns empty
+        self.status_reason = props.get('StatusReason') or self.status_reason
 
         outputs_status = ('CREATE_COMPLETE', 'UPDATE_COMPLETE', 'CREATE_FAILED', 'UPDATE_FAILED')
         if self.status in outputs_status and self.outputs is None:

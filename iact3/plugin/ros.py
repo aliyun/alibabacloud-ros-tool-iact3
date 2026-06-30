@@ -137,9 +137,15 @@ class StackPlugin(ROSPlugin):
         kwargs = dict(StackId=stack_id)
         return await self.fetch_all('ListStackEventsRequest', kwargs, 'Events')
 
-    async def get_regions(self) -> list:
-        response = await self.send_request('DescribeRegionsRequest')
-        return [region['RegionId'] for region in response['Regions'] or []]
+    async def get_regions(self, lang: str = None) -> list:
+        kwargs = {}
+        if lang:
+            kwargs['AcceptLanguage'] = 'zh-CN' if lang == 'zh' else 'en-US'
+        response = await self.send_request('DescribeRegionsRequest', **kwargs)
+        return [
+            {'id': region['RegionId'], 'name': region.get('LocalName', region['RegionId'])}
+            for region in (response['Regions'] or [])
+        ]
 
     async def get_parameter_constraints(
         self,
