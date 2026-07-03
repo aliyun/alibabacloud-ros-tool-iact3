@@ -95,3 +95,66 @@ jobs:
             artifacts/iact3-binary-*/* \
             artifacts/iact3-version/version.txt \
             --clobber
+
+      - name: Notify release webhook
+        env:
+          RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+          RELEASE_WEBHOOK_TOKEN: ${{ secrets.RELEASE_WEBHOOK_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${RELEASE_WEBHOOK_URL}" ]]; then
+            echo "RELEASE_WEBHOOK_URL is not set; skipping explicit webhook call."
+            exit 0
+          fi
+          if [[ -z "${RELEASE_WEBHOOK_TOKEN}" ]]; then
+            echo "RELEASE_WEBHOOK_TOKEN is not set; cannot sign release webhook payload." >&2
+            exit 1
+          fi
+
+          payload_file=$(mktemp)
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > /tmp/release.json
+          gh api "repos/${GITHUB_REPOSITORY}" > /tmp/repository.json
+          jq -n \
+            --slurpfile release /tmp/release.json \
+            --slurpfile repository /tmp/repository.json \
+            '{action: "edited", release: $release[0], repository: $repository[0]}' \
+            > "${payload_file}"
+
+          signature=$(openssl dgst -sha256 -hmac "${RELEASE_WEBHOOK_TOKEN}" "${payload_file}" | awk '{print $2}')
+          delivery_id=$(uuidgen | tr '[:upper:]' '[:lower:]')
+          task_id="${delivery_id}"
+          response_file=$(mktemp)
+
+          http_code=$(curl --silent --show-error \
+            --output "${response_file}" \
+            --write-out "%{http_code}" \
+            --retry 3 --retry-delay 5 --connect-timeout 10 --max-time 20 \
+            --request POST \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Hookshot/${GITHUB_RUN_ID}" \
+            -H "X-GitHub-Event: release" \
+            -H "X-GitHub-Delivery: ${delivery_id}" \
+            -H "X-GitHub-Hook-Installation-Target-Type: repository" \
+            -H "X-Hub-Signature-256: sha256=${signature}" \
+            -H "X-Fc-Invocation-Type: Async" \
+            -H "X-Fc-Async-Task-Id: ${task_id}" \
+            --data-binary "@${payload_file}" \
+            "${RELEASE_WEBHOOK_URL}")
+
+          case "${http_code}" in
+            2*)
+              echo "Submitted FC async release sync task ${task_id}."
+              cat "${response_file}"
+              ;;
+            409)
+              echo "FC async release sync task ${task_id} was already submitted."
+              cat "${response_file}"
+              ;;
+            *)
+              echo "Failed to submit FC async release sync task ${task_id}; HTTP ${http_code}." >&2
+              cat "${response_file}" >&2
+              exit 1
+              ;;
+          esac
