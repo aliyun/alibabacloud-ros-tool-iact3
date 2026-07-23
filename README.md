@@ -65,7 +65,8 @@ Start the built-in web server for a browser-based interface:
 iact3 server start
 ```
 
-Then open your browser at [http://localhost:8088](http://localhost:8088).
+The terminal prints an access token. Open
+[http://localhost:8088](http://localhost:8088) and enter that token to sign in.
 
 The Web UI provides:
 - **Workspace** — edit templates and config files, run analysis (validate, preview, cost, policy) and full tests in one page
@@ -74,9 +75,13 @@ The Web UI provides:
 - **Settings** — configure credentials and default values
 
 Optional parameters:
-- `--host` — bind address (default: `127.0.0.1`; use `0.0.0.0` for remote access)
+- `--host` — loopback bind address (default: `127.0.0.1`)
 - `--port` — port number (default: `8088`)
-- `--token` — bearer token for API authentication (recommended when binding to non-local address)
+- `--token` — set the access token instead of generating one
+
+The built-in server intentionally does not listen on external interfaces because
+it serves plain HTTP. For remote access, keep it on loopback and use an SSH tunnel
+to forward the port.
 
 Example:
 ```bash

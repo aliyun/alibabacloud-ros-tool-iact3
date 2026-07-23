@@ -6,6 +6,7 @@ import os
 import ssl as _ssl
 import types
 
+import Tea.core as _tea_core
 from Tea.core import TeaCore
 from Tea.exceptions import TeaException
 from Tea.model import TeaModel
@@ -28,9 +29,6 @@ LOG = logging.getLogger(__name__)
 #   "Cannot create a client socket with a PROTOCOL_TLS_SERVER context"
 #
 # Instead of patching the global ssl module, we install a proxy only in the
-# Tea.core module namespace so other code in the process is unaffected.
-import Tea.core as _tea_core
-
 _original_cdc = _ssl.create_default_context
 
 

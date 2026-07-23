@@ -4,7 +4,9 @@ import contextlib
 import contextvars
 import json
 import logging
+import os
 import shutil
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +17,22 @@ from iact3.testing.ros_stack import StackTest
 from iact3.report.generate_reports import ReportBuilder
 
 LOG = logging.getLogger(__name__)
+
+
+def get_credential_key_id(credential) -> str:
+    """Return a stable, non-secret suffix for static access-key credentials."""
+    cloud_credential = getattr(credential, 'cloud_credential', None)
+    credential_type = getattr(cloud_credential, 'credential_type', None)
+    if credential_type and credential_type != 'access_key':
+        # STS and instance-role access keys rotate. Persisting their suffix
+        # would reject the same provider after refresh or server restart.
+        return ''
+    access_key_id = (
+        getattr(cloud_credential, 'access_key_id', '')
+        or getattr(credential, 'access_key_id', '')
+        or ''
+    )
+    return access_key_id[-4:] if len(access_key_id) >= 4 else access_key_id
 
 
 def _ensure_utc_suffix(time_str: str) -> str:
@@ -47,6 +65,9 @@ def _ensure_utc_suffix(time_str: str) -> str:
 # only accepts logs emitted from the same context, preventing
 # cross-contamination when multiple operations run concurrently.
 _log_capture_ctx: contextvars.ContextVar = contextvars.ContextVar('_log_capture_ctx', default=None)
+_log_capture_level_lock = threading.Lock()
+_log_capture_level_users = 0
+_log_capture_original_level = None
 
 
 @contextlib.contextmanager
@@ -74,16 +95,24 @@ def capture_iact3_logs(log_path: Path):
 
     handler.addFilter(_CtxFilter())
     logger.addHandler(handler)
-    original_level = logger.level
-    # Force level to INFO so that INFO logs are captured even if the parent
-    # logger was initialized with a higher level (e.g. ERROR in main.py).
-    logger.setLevel(logging.INFO)
+    global _log_capture_level_users, _log_capture_original_level
+    with _log_capture_level_lock:
+        if _log_capture_level_users == 0:
+            _log_capture_original_level = logger.level
+            # Force level to INFO so that INFO logs are captured even if the
+            # parent logger was initialized with a higher level.
+            logger.setLevel(logging.INFO)
+        _log_capture_level_users += 1
     try:
         yield
     finally:
         logger.removeHandler(handler)
         handler.close()
-        logger.setLevel(original_level)
+        with _log_capture_level_lock:
+            _log_capture_level_users -= 1
+            if _log_capture_level_users == 0:
+                logger.setLevel(_log_capture_original_level)
+                _log_capture_original_level = None
         _log_capture_ctx.reset(token)
 
 # Directory for persisting test run state across server restarts
@@ -177,7 +206,8 @@ class TestRun:
 
     # ROS stack statuses that mean the stack is still transitioning
     _IN_PROGRESS_STATUSES = frozenset({
-        'CREATE_IN_PROGRESS', 'UPDATE_IN_PROGRESS', 'DELETE_IN_PROGRESS',
+        'CREATE_REQUESTING', 'CREATE_IN_PROGRESS', 'UPDATE_IN_PROGRESS',
+        'DELETE_REQUESTING', 'DELETE_IN_PROGRESS',
         'CREATE_ROLLBACK_IN_PROGRESS', 'ROLLBACK_IN_PROGRESS',
     })
 
@@ -196,11 +226,39 @@ class TestRun:
         prev_status: dict = {s['stack_name']: s['status'] for s in self.stacks if s.get('status')}
 
         stacks_info = []
+        previous = {
+            (item.get('stack_id') or item.get('stack_name')): item
+            for item in self.stacks
+            if isinstance(item, dict)
+        }
         for stack in self._test.stacker.stacks:
             raw_status = stack.status or ''
             # If status is temporarily empty but we had a known status before,
             # keep the previous status to avoid progress bouncing back to 0.
             effective_status = raw_status or prev_status.get(stack.name or '', '')
+            previous_stack = previous.get(stack.id or stack.name or '', {})
+            credential_ref = dict(previous_stack.get('credential_ref') or {})
+            credential_key_id = previous_stack.get('credential_key_id')
+            test_config = getattr(stack, 'test_config', None)
+            auth = getattr(test_config, 'auth', None)
+            credential = getattr(auth, 'credential', None)
+            if credential:
+                credential_ref = {
+                    key: value
+                    for key, value in {
+                        'name': getattr(auth, 'name', None),
+                        'location': getattr(auth, 'location', None),
+                    }.items()
+                    if value
+                }
+            else:
+                # StackPlugin falls back to the SDK provider chain when the
+                # configured Auth cannot resolve a credential.
+                credential_ref = {}
+                plugin = getattr(stack, 'plugin', None)
+                credential = getattr(plugin, 'credential', None)
+            if credential:
+                credential_key_id = get_credential_key_id(credential)
             stacks_info.append({
                 'test_name': stack.test_name,
                 'region': stack.region,
@@ -211,6 +269,8 @@ class TestRun:
                 'launch_succeeded': stack.launch_succeeded,
                 'create_time': _ensure_utc_suffix(stack.create_time),
                 'status_time': _ensure_utc_suffix(stack.status_time),
+                'credential_ref': credential_ref,
+                'credential_key_id': credential_key_id,
             })
         self.stacks = stacks_info
 
@@ -283,18 +343,28 @@ class TestRunner:
     def __init__(self):
         self._runs: Dict[str, TestRun] = {}
         self._lock = asyncio.Lock()
+        self._background_tasks: Dict[str, asyncio.Task] = {}
+        self._background_claims = set()
         self._load_runs_from_disk()
 
-    def _save_run_to_disk(self, run: TestRun):
+    def _save_run_to_disk(self, run: TestRun, raise_on_error=False):
         """Persist a single run's state to disk."""
         try:
             _RUNS_DIR.mkdir(parents=True, exist_ok=True)
             data = run.to_dict()
             run_file = _RUNS_DIR / f'{run.id}.json'
-            with open(run_file, 'w', encoding='utf-8') as f:
+            temp_file = run_file.with_suffix('.json.tmp')
+            with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+            os.replace(str(temp_file), str(run_file))
+            return True
         except Exception as ex:
             LOG.warning(f'Failed to save run {run.id} to disk: {ex}')
+            if raise_on_error:
+                raise RuntimeError(
+                    f'Could not persist run {run.id} before the cloud operation'
+                ) from ex
+            return False
 
     def _delete_run_from_disk(self, run_id: str):
         """Remove a run's persisted file from disk."""
@@ -351,6 +421,11 @@ class TestRunner:
     def get_run(self, run_id: str) -> Optional[dict]:
         """Get a specific test run (including logs)."""
         run = self._runs.get(run_id)
+        # A background operation mutates the in-memory stack dictionaries.
+        # Replacing the TestRun from disk here would leave that operation
+        # updating detached objects and its later checkpoints would be lost.
+        if run and self.has_background_task(run_id):
+            return run.to_dict(include_logs=True)
         if run and run.status not in ('completed', 'failed', 'cancelled'):
             run.update_stacks()
             return run.to_dict(include_logs=True)
@@ -386,6 +461,9 @@ class TestRunner:
 
     def _load_single_run_from_disk(self, run_id: str) -> Optional[TestRun]:
         """Load a single run from disk into memory."""
+        active_run = self._runs.get(run_id)
+        if active_run and self.has_background_task(run_id):
+            return active_run
         run_file = _RUNS_DIR / f'{run_id}.json'
         if not run_file.exists():
             return None
@@ -421,17 +499,26 @@ class TestRunner:
         name = params.get('name', f'test-{run_id}')
         run = TestRun(run_id=run_id, name=name, params=params)
         self._runs[run_id] = run
-        self._save_run_to_disk(run)
+        try:
+            self._save_run_to_disk(run, raise_on_error=True)
+        except Exception:
+            self._runs.pop(run_id, None)
+            raise
         # Clean up oldest output directories to prevent accumulation
         self._auto_cleanup_old_outputs()
         # Start test in background
         run._task = asyncio.create_task(self._execute_test(run))
         return run
 
+    def _checkpoint_run(self, run: TestRun):
+        run.update_stacks()
+        self._save_run_to_disk(run, raise_on_error=True)
+
     async def _execute_test(self, run: TestRun):
         """Execute the test and update status."""
         run.status = 'running'
         run.progress = 0
+        self._save_run_to_disk(run)
         try:
             params = run.params
             template = params.get('template')
@@ -460,14 +547,14 @@ class TestRunner:
                     test_names=test_names,
                     output_directory=output_directory,
                     template_content=params.get('template_content'),
+                    stack_observer=lambda: self._checkpoint_run(run),
                 )
                 run._test = test
                 run.report_path = test.report_path
                 # Save a non-secret fingerprint of the credential used for this run
                 # so that stack deletion can verify the same credential is active.
                 if test.auth and test.auth.credential:
-                    ak = getattr(test.auth.credential, 'access_key_id', '') or ''
-                    run.credential_key_id = ak[-4:] if len(ak) >= 4 else ak
+                    run.credential_key_id = get_credential_key_id(test.auth.credential)
 
                 # Run test (create stacks)
                 async with test:
@@ -483,6 +570,7 @@ class TestRunner:
             any_stack_failed = any(
                 not s.get('launch_succeeded', True)
                 or 'fail' in (s.get('status', '')).lower()
+                or 'unconfirmed' in (s.get('status', '')).lower()
                 or 'rollback' in (s.get('status', '')).lower()
                 for s in run.stacks
             )
@@ -506,20 +594,93 @@ class TestRunner:
         run = self._runs.get(run_id)
         if not run:
             return False
-        if run._task and not run._task.done():
-            run._task.cancel()
-            try:
-                await run._task
-            except asyncio.CancelledError:
-                pass
-            except Exception as ex:
-                LOG.warning(f'Task cleanup for run {run_id} raised: {ex}')
+        if not self.claim_background_operation(run_id):
+            return False
+        try:
+            if run._task and not run._task.done():
+                run._task.cancel()
+                try:
+                    await run._task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as ex:
+                    LOG.warning(f'Task cleanup for run {run_id} raised: {ex}')
+                run.status = 'cancelled'
+                run.completed_at = datetime.now().isoformat()
+                run.update_stacks()
+                self._save_run_to_disk(run)
+                return True
+            return False
+        finally:
+            self.release_background_claim(run_id)
+
+    def has_background_task(self, run_id: str) -> bool:
+        if run_id in self._background_claims:
+            return True
+        task = self._background_tasks.get(run_id)
+        return bool(task and not task.done())
+
+    def claim_background_operation(self, run_id: str) -> bool:
+        """Reserve a run before an async operation reaches its first await."""
+        if self.has_background_task(run_id):
+            return False
+        self._background_claims.add(run_id)
+        return True
+
+    def release_background_claim(self, run_id: str):
+        self._background_claims.discard(run_id)
+
+    def start_background_task(self, run_id: str, coroutine) -> asyncio.Task:
+        """Start one owned background operation for a run."""
+        existing = self._background_tasks.get(run_id)
+        if existing and not existing.done():
+            close = getattr(coroutine, 'close', None)
+            if close:
+                close()
+            raise RuntimeError(f'Run {run_id} already has a background operation')
+        task = asyncio.create_task(coroutine)
+        self._background_tasks[run_id] = task
+
+        def discard(completed):
+            if self._background_tasks.get(run_id) is completed:
+                self._background_tasks.pop(run_id, None)
+            if not completed.cancelled():
+                error = completed.exception()
+                if error:
+                    LOG.error('Background operation for run %s failed: %s', run_id, error)
+
+        task.add_done_callback(discard)
+        return task
+
+    async def shutdown(self):
+        """Cancel owned execution and background tasks during server cleanup."""
+        execution_runs = [
+            run
+            for run in self._runs.values()
+            if run._task and not run._task.done()
+        ]
+        background_run_ids = [
+            run_id
+            for run_id, task in self._background_tasks.items()
+            if not task.done()
+        ]
+        tasks = [run._task for run in execution_runs]
+        tasks.extend(self._background_tasks[run_id] for run_id in background_run_ids)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        for run in execution_runs:
             run.status = 'cancelled'
             run.completed_at = datetime.now().isoformat()
-            run.update_stacks()
+            run.update_stacks(force=True)
             self._save_run_to_disk(run)
-            return True
-        return False
+        for run_id in background_run_ids:
+            run = self._runs.get(run_id)
+            if run:
+                self._save_run_to_disk(run)
+        self._background_tasks.clear()
+        self._background_claims.clear()
 
     def delete_run(self, run_id: str) -> bool:
         """Delete a test run record and its output files."""
@@ -528,6 +689,15 @@ class TestRunner:
             return False
         if run._task and not run._task.done():
             return False  # Can't delete a running test
+        if self.has_background_task(run_id):
+            return False
+        for stack in run.stacks:
+            status = stack.get('status', '')
+            if (
+                stack.get('stack_id')
+                and status != 'DELETE_COMPLETE'
+            ) or status in ('CREATE_REQUESTING', 'CREATE_UNCONFIRMED'):
+                return False
         # Remove output directory for this run
         self._cleanup_run_output(run)
         del self._runs[run_id]

@@ -60,36 +60,6 @@ const TF_EXAMPLE_CONFIG = `# No parameters required`;
 
 const DEFAULT_NEW_PROJECT_CONFIG = `parameters: {}`;
 
-// Helper: Extract parameters section from full YAML config
-// Returns only the "parameters:" portion or full content if already simplified
-function extractParametersYaml(fullConfig) {
-    if (!fullConfig) return '';
-    const trimmed = fullConfig.trim();
-    // If already starts with "parameters:", it's simplified format
-    if (trimmed.startsWith('parameters:') || trimmed.startsWith('#')) {
-        return stripProjectSection(fullConfig);
-    }
-    // Try to parse and extract
-    try {
-        const parsed = typeof jsyaml !== 'undefined' ? jsyaml.load(fullConfig) : null;
-        if (!parsed) return stripProjectSection(fullConfig);
-        // Check if it has tests section
-        if (parsed.tests && parsed.tests.default && parsed.tests.default.parameters) {
-            const params = parsed.tests.default.parameters;
-            if (typeof jsyaml !== 'undefined') {
-                return jsyaml.dump({ parameters: params }, { lineWidth: -1, noRefs: true });
-            }
-        } else if (parsed.parameters) {
-            if (typeof jsyaml !== 'undefined') {
-                return jsyaml.dump({ parameters: parsed.parameters }, { lineWidth: -1, noRefs: true });
-            }
-        }
-    } catch (e) {
-        // Fallback: search for "parameters:" section manually
-    }
-    return stripProjectSection(fullConfig);
-}
-
 // Remove the `project:` top-level section from config YAML so the parameter
 // editor only shows actual parameters, not internal bookkeeping fields.
 function stripProjectSection(yaml) {
@@ -140,11 +110,10 @@ function buildFullConfigYaml(paramsYaml, regions, projectName) {
         if (parsed.tests && typeof parsed.tests === 'object') {
             const result = { ...parsed };
             if (projectName && !result.project) result.project = { name: projectName };
-            // Update regions: set to selected list, or clear if none selected
-            if (result.tests && result.tests.default) {
+            // Only override saved regions when the user selected replacements.
+            if (regions && result.tests && result.tests.default) {
                 result.tests.default.regions = regions
-                    ? regions.split(',').map(r => r.trim()).filter(Boolean)
-                    : [];
+                    .split(',').map(r => r.trim()).filter(Boolean);
             }
             if (typeof jsyaml !== 'undefined') {
                 return jsyaml.dump(result, { lineWidth: -1, noRefs: true });
@@ -175,6 +144,30 @@ function buildFullConfigYaml(paramsYaml, regions, projectName) {
         // Fallback: just append tests section
     }
     return paramsYaml;
+}
+
+function regionsFromConfig(configYaml) {
+    if (!configYaml || typeof jsyaml === 'undefined') return null;
+    try {
+        const parsed = jsyaml.load(configYaml);
+        if (!parsed || typeof parsed.tests !== 'object' || Array.isArray(parsed.tests)) {
+            return null;
+        }
+        const testNames = Object.keys(parsed.tests);
+        const targetName = Object.prototype.hasOwnProperty.call(parsed.tests, 'default')
+            ? 'default'
+            : testNames[0];
+        const target = targetName ? parsed.tests[targetName] : null;
+        if (!target || typeof target !== 'object') return [];
+        const regions = target.regions;
+        if (Array.isArray(regions)) return regions.map(String).filter(Boolean);
+        if (typeof regions === 'string') {
+            return regions.split(',').map(r => r.trim()).filter(Boolean);
+        }
+        return [];
+    } catch (e) {
+        return null;
+    }
 }
 
 // Custom schema so ROS shorthand intrinsic functions (!Ref, !GetAtt, !Select,
@@ -276,6 +269,8 @@ const state = {
     actionResults: { policy: null, cost: null, run: null },
     _hasActionOutput: false,  // flag to avoid DOM queries on every keystroke in clearAllActionOutputs
     runActiveTab: 'detail',
+    pendingRunRequestId: null,
+    pendingProjectRunRequestIds: {},
     pdTemplateFormat: 'yaml',  // 'yaml' | 'json' (project detail template tab)
     _pdTemplateRaw: '',        // raw template content for format switching
 };
@@ -283,6 +278,17 @@ const state = {
 const el = (id) => document.getElementById(id);
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function newRunRequestId() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+        return globalThis.crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const value = Math.floor(Math.random() * 16);
+        const nibble = char === 'x' ? value : ((value & 0x3) | 0x8);
+        return nibble.toString(16);
+    });
+}
 
 // Clipboard helper with fallback for non-secure contexts (HTTP without localhost)
 async function copyToClipboard(text) {
@@ -305,64 +311,8 @@ async function copyToClipboard(text) {
     }
 }
 
-// --- Token authentication helpers ---
-// When the server is started with --token, every API request must include
-// an Authorization: Bearer header.  The token is stored in localStorage
-// after the user enters it via a prompt.  Output URLs (/outputs/) use a
-// ?token= query parameter since browser navigation cannot set headers.
-
-function getApiToken() {
-    return localStorage.getItem('iact3_api_token') || '';
-}
-
-function setApiToken(token) {
-    if (token) {
-        localStorage.setItem('iact3_api_token', token);
-    } else {
-        localStorage.removeItem('iact3_api_token');
-    }
-}
-
 function authUrl(url) {
-    // Append token query parameter to /outputs/ URLs for direct navigation.
-    const token = getApiToken();
-    if (!token || !url || !url.startsWith('/outputs/')) return url;
-    const sep = url.includes('?') ? '&' : '?';
-    return `${url}${sep}token=${encodeURIComponent(token)}`;
-}
-
-async function _promptForToken() {
-    return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999';
-        const box = document.createElement('div');
-        box.style.cssText = 'background:#fff;padding:24px;border-radius:8px;max-width:400px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
-        box.innerHTML = `
-            <h3 style="margin:0 0 12px;font-size:16px;color:#333">Authentication Required</h3>
-            <p style="margin:0 0 12px;font-size:13px;color:#666">This server requires a bearer token. Please enter it below:</p>
-            <input type="password" id="iact3_token_input" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;margin-bottom:12px" placeholder="Bearer token">
-            <div style="display:flex;gap:8px;justify-content:flex-end">
-                <button id="iact3_token_cancel" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
-                <button id="iact3_token_ok" style="padding:6px 16px;border:none;border-radius:4px;cursor:pointer;background:#1890ff;color:#fff">OK</button>
-            </div>`;
-        modal.appendChild(box);
-        document.body.appendChild(modal);
-        const input = box.querySelector('#iact3_token_input');
-        input.focus();
-        box.querySelector('#iact3_token_ok').onclick = () => {
-            const val = input.value.trim();
-            document.body.removeChild(modal);
-            resolve(val);
-        };
-        box.querySelector('#iact3_token_cancel').onclick = () => {
-            document.body.removeChild(modal);
-            resolve('');
-        };
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') box.querySelector('#iact3_token_ok').click();
-            if (e.key === 'Escape') box.querySelector('#iact3_token_cancel').click();
-        });
-    });
+    return url;
 }
 
 async function api(method, path, body) {
@@ -371,20 +321,10 @@ async function api(method, path, body) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
     }
-    // Attach bearer token if one is stored
-    const token = getApiToken();
-    if (token) {
-        opts.headers['Authorization'] = `Bearer ${token}`;
-    }
-    let res = await fetch(path, opts);
-    // If 401 and we have no token (or token is wrong), prompt and retry once
+    const res = await fetch(path, opts);
     if (res.status === 401) {
-        const newToken = await _promptForToken();
-        if (newToken) {
-            setApiToken(newToken);
-            opts.headers['Authorization'] = `Bearer ${newToken}`;
-            res = await fetch(path, opts);
-        }
+        window.location.assign('/');
+        throw new Error('Authentication required');
     }
     const text = await res.text();
     const contentType = res.headers.get('Content-Type') || '';
@@ -1394,7 +1334,7 @@ function populateSamples() {
 async function loadSample(id) {
     try {
         const data = await api('GET', `/api/samples/${id}`);
-        el('config-editor').value = extractParametersYaml(data.config || '');
+        el('config-editor').value = data.config || '';
         highlightConfig();
         el('sample-select').value = id;
         if (isTerraformProject(data)) {
@@ -1658,7 +1598,7 @@ async function autoGenerateParams() {
         }
         const res = await api('POST', '/api/generate-params', payload);
         if (res.parameters) {
-            el('config-editor').value = res.parameters;
+            el('config-editor').value = res.config || res.parameters;
             highlightConfig();
             state._templateDirty = false;
 
@@ -2328,14 +2268,18 @@ function bindPlayground() {
     });
 
     el('btn-run').addEventListener('click', async () => {
-        setCurrentAction('run');
-        if (!await prevalidate(t('runBtn') || 'Run Test')) return;
-        state.runActiveTab = 'detail';
         const btn = el('btn-run');
+        if (btn.disabled) return;
         setBtnLoading(btn, true);
         try {
+            setCurrentAction('run');
+            if (!await prevalidate(t('runBtn') || 'Run Test')) return;
+            state.runActiveTab = 'detail';
             const payload = getRunPayload();
+            state.pendingRunRequestId = state.pendingRunRequestId || newRunRequestId();
+            payload.request_id = state.pendingRunRequestId;
             const run = await api('POST', '/api/runs', payload);
+            state.pendingRunRequestId = null;
             if (run.logs) {
                 consoleLog(run.logs, { type: 'info', action: 'run', level: 'INFO', raw: true });
             }
@@ -3531,7 +3475,7 @@ async function generateParamsForProjectEdit() {
         payload.config_content = el('project-edit-config').value;
         const res = await api('POST', '/api/generate-params', payload);
         if (res.parameters) {
-            el('project-edit-config').value = res.parameters;
+            el('project-edit-config').value = res.config || res.parameters;
             highlightPeConfig();
             // Show logs in browser console for debugging
             if (res.logs) {
@@ -3573,7 +3517,7 @@ async function openEditProject(name) {
         if (!config && data.configs && data.configs.length) {
             config = data.configs[0].config || '';
         }
-        state.projectEditConfig = extractParametersYaml(config);
+        state.projectEditConfig = config;
         el('project-edit-config').value = state.projectEditConfig;
         highlightPeConfig();
 
@@ -3870,7 +3814,12 @@ async function loadProjectIntoPlayground(name) {
             if (state.tfMode) exitTfMode();
             el('template-editor').value = data.template || '';
         }
-        el('config-editor').value = extractParametersYaml(config);
+        el('config-editor').value = config;
+        const savedRegions = regionsFromConfig(config);
+        if (savedRegions !== null && state.pgRegionSelect) {
+            state.pgRegionSelect.setSelected(savedRegions);
+            updateRegionHint();
+        }
         highlightConfig();
         // Clear previous action results/logs and expand the template editor area
         state.currentAction = null;
@@ -4106,7 +4055,8 @@ function debounceProjectSearch() {
 
 function isStackFailed(s) {
     const st = (s.status || '').toLowerCase();
-    return st.includes('fail') || st.includes('rollback');
+    return st.includes('fail') || st.includes('rollback') ||
+        st.includes('unconfirmed') || st.includes('timeout');
 }
 
 function calcStackStats(stacks) {
@@ -4124,6 +4074,14 @@ const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 
 function isTerminalStatus(status) {
     return TERMINAL_STATUSES.has(status);
+}
+
+function isRunSettled(run) {
+    const stacks = Array.isArray(run?.stacks) ? run.stacks : [];
+    const deleting = stacks.some(s =>
+        ['DELETE_REQUESTING', 'DELETE_IN_PROGRESS'].includes(String(s.status || ''))
+    );
+    return isTerminalStatus(run?.status) && !deleting;
 }
 
 function startTaskPolling() {
@@ -4150,16 +4108,16 @@ function stopTaskPolling() {
 
 function checkStopTaskPolling() {
     if (state.page === 'tasks') {
-        if (state.tasks.length === 0 || state.tasks.every(r => isTerminalStatus(r.status))) {
+        if (state.tasks.length === 0 || state.tasks.every(isRunSettled)) {
             stopTaskPolling();
         }
     } else if (state.page === 'detail' && state.currentRun) {
-        if (isTerminalStatus(state.currentRun.status)) {
+        if (isRunSettled(state.currentRun)) {
             stopTaskPolling();
         }
     } else if (state.page === 'project-detail') {
         const runs = state.currentProjectRuns || [];
-        if (runs.length === 0 || runs.every(r => isTerminalStatus(r.status))) {
+        if (runs.length === 0 || runs.every(isRunSettled)) {
             stopTaskPolling();
         }
     }
@@ -4426,9 +4384,17 @@ function renderDetail(run) {
 
     // Header actions
     const headerActions = el('detail-header-actions');
+    const canDeleteStacks = !['pending', 'running'].includes(run.status) && stacks.some(s => {
+        const status = String(s.status || '');
+        return s.stack_id && ![
+            'DELETE_COMPLETE',
+            'DELETE_REQUESTING',
+            'DELETE_IN_PROGRESS',
+        ].includes(status);
+    });
     headerActions.innerHTML = `
         ${run.status === 'running' ? `<button class="btn btn-sm btn-cancel-task" data-id="${run.id}">${t('cancelBtn')}</button>` : ''}
-        ${stacks.some(s => s.stack_id && !String(s.status).startsWith('DELETE')) ? `<button class="btn btn-sm btn-danger btn-delete-stacks" data-id="${run.id}">${t('deleteStacksBtn')}</button>` : ''}
+        ${canDeleteStacks ? `<button class="btn btn-sm btn-danger btn-delete-stacks" data-id="${run.id}">${t('deleteStacksBtn')}</button>` : ''}
     `;
 
     // Template, Params & Logs tabs
@@ -4520,10 +4486,13 @@ function renderDetailStacks(run) {
         // Show failure info when stack failed or launch not succeeded
         const isFailure = failed || s.launch_succeeded === false;
         if (isFailure) {
-            const failureMsg = s.status_reason || s.error || '';
+            const failureMsg = s.status_reason || s.create_error || s.error || '';
             if (failureMsg) {
                 detailItems.push(`<div class="pd-kv-item pd-kv-status-reason"><span class="pd-kv-label">${t('failureReason')}</span><span class="pd-kv-value pd-status-reason">${escapeHtml(extractErrorMessage(failureMsg))}</span></div>`);
             }
+        }
+        if (s.delete_error) {
+            detailItems.push(`<div class="pd-kv-item pd-kv-status-reason"><span class="pd-kv-label">${t('failureReason')}</span><span class="pd-kv-value pd-status-reason">${escapeHtml(extractErrorMessage(s.delete_error))}</span></div>`);
         }
 
         return `<div class="pd-stack-row collapsed" id="td-stack-${globalIdx}">
@@ -4763,8 +4732,19 @@ async function deleteRunStacks(id) {
     if (!await showConfirm(t('confirmDeleteStacks'), { danger: true })) return;
     try {
         const res = await api('POST', `/api/runs/${id}/delete-stacks`);
-        toast(t('deletedStacks', { count: res.deleted || 0 }), 'success');
-        loadDetail(id);
+        const deleted = res.deleted || 0;
+        const errors = res.errors || 0;
+        if (errors) {
+            const firstError = (res.details || []).find(item => item.error)?.error || '';
+            const message = deleted
+                ? t('deleteStacksPartial', { deleted, errors })
+                : t('deleteStacksFailed', { errors });
+            toast(firstError ? `${message} ${firstError}` : message, deleted ? 'warning' : 'error');
+        } else {
+            toast(t('deletedStacks', { count: deleted }), 'success');
+        }
+        startTaskPolling();
+        await loadDetail(id);
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -5153,6 +5133,8 @@ function renderProjectDetail(project, runs) {
 
 async function runProjectFromDetail(name) {
     const btn = el('btn-project-detail-run');
+    if (btn.disabled) return;
+    setBtnLoading(btn, true);
     try {
         const project = await api('GET', `/api/projects/${encodeURIComponent(name)}`);
         let config = project.config || '';
@@ -5179,10 +5161,8 @@ async function runProjectFromDetail(name) {
 
         // Step 1: Validate before run
         toast(t('preValidating', { action: t('runBtn') }) || 'Validating...', 'info');
-        setBtnLoading(btn, true);
         const valRes = await api('POST', '/api/validate', payload);
         if (valRes.result !== 'valid') {
-            setBtnLoading(btn, false);
             if (valRes.logs) {
                 consoleLog(valRes.logs, { type: 'info', action: 'validate', level: 'INFO', raw: true });
             } else {
@@ -5194,13 +5174,17 @@ async function runProjectFromDetail(name) {
         }
 
         // Step 2: Run test
+        state.pendingProjectRunRequestIds[name] =
+            state.pendingProjectRunRequestIds[name] || newRunRequestId();
+        payload.request_id = state.pendingProjectRunRequestIds[name];
         const run = await api('POST', '/api/runs', payload);
-        setBtnLoading(btn, false);
+        delete state.pendingProjectRunRequestIds[name];
         toast(t('runStarted', { id: run.id }), 'success');
         loadProjectDetail(name);
     } catch (e) {
-        setBtnLoading(btn, false);
         toast(e.message, 'error');
+    } finally {
+        setBtnLoading(btn, false);
     }
 }
 
@@ -5664,7 +5648,10 @@ function _captureEditContent() {
 
 function _restoreEditContent(saved) {
     if (!saved) return;
-    state.projectEditTfMode = saved.isTf;
+    // Disable the outgoing-mode sync while replacing editor state; otherwise
+    // the historical version still in the textarea can overwrite the cached
+    // current Terraform file before it is restored.
+    state.projectEditTfMode = false;
     state.projectEditTfFiles = { ...saved.tfFiles };
     state.projectEditTfActiveFile = saved.tfActiveFile;
     el('project-edit-template').value = saved.template;
@@ -5730,14 +5717,22 @@ async function onEditVersionChange(projectName) {
     try {
         const v = await api('GET', `/api/projects/${encodeURIComponent(projectName)}/versions/${ver}`);
         // Replace template editor content
-        if (state.projectEditTfMode) {
+        const versionIsTf = isTerraformProject(v);
+        // Avoid syncing the previous version's active Terraform editor into
+        // the files we are about to load.
+        state.projectEditTfMode = false;
+        if (versionIsTf) {
             state.projectEditTfFiles = { ...(v.template_files || {}) };
             const firstFile = Object.keys(state.projectEditTfFiles).filter(p => !p.endsWith('/')).sort()[0];
             state.projectEditTfActiveFile = firstFile || null;
+            setProjectEditTemplateTab('terraform');
             el('project-edit-tf-template').value = firstFile ? state.projectEditTfFiles[firstFile] : '';
             renderProjectEditTfFileList();
             highlightPeTf();
         } else {
+            state.projectEditTfFiles = {};
+            state.projectEditTfActiveFile = null;
+            setProjectEditTemplateTab('ros');
             el('project-edit-template').value = v.template || '';
             highlightPeTemplate();
         }
@@ -5746,7 +5741,7 @@ async function onEditVersionChange(projectName) {
         if (!config && v.configs && v.configs.length) {
             config = v.configs[0].config || '';
         }
-        state.projectEditConfig = stripProjectSection(config);
+        state.projectEditConfig = config;
         el('project-edit-config').value = state.projectEditConfig;
         highlightPeConfig();
         toast(t('versionLoadedHint', {ver: ver}), 'info');
