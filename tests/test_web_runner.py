@@ -23,6 +23,11 @@ from iact3.web.runner import capture_iact3_logs
 from iact3.web.runner import get_credential_key_id
 from tests.common import AsyncTestCase
 
+try:
+    AsyncMock = mock.AsyncMock
+except AttributeError:
+    from asynctest import CoroutineMock as AsyncMock
+
 
 class TestIncrementalStackCreation(AsyncTestCase):
     @staticmethod
@@ -47,9 +52,9 @@ class TestIncrementalStackCreation(AsyncTestCase):
             await response_ready.wait()
             return 'stack-created'
 
-        plugin.create_stack = mock.AsyncMock(side_effect=create_stack)
-        plugin.list_stacks = mock.AsyncMock(return_value=[])
-        plugin.get_stack = mock.AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'})
+        plugin.create_stack = AsyncMock(side_effect=create_stack)
+        plugin.list_stacks = AsyncMock(return_value=[])
+        plugin.get_stack = AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'})
         observed = []
 
         with mock.patch('iact3.stack.StackPlugin', return_value=plugin):
@@ -73,9 +78,9 @@ class TestIncrementalStackCreation(AsyncTestCase):
 
     async def test_failed_pre_create_checkpoint_stops_the_cloud_request(self):
         plugin = SimpleNamespace(
-            create_stack=mock.AsyncMock(return_value='must-not-be-created'),
-            list_stacks=mock.AsyncMock(return_value=[]),
-            get_stack=mock.AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'}),
+            create_stack=AsyncMock(return_value='must-not-be-created'),
+            list_stacks=AsyncMock(return_value=[]),
+            get_stack=AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'}),
         )
 
         def fail_checkpoint(_stack):
@@ -93,7 +98,7 @@ class TestIncrementalStackCreation(AsyncTestCase):
 
     async def test_response_error_recovers_stack_by_exact_name(self):
         plugin = SimpleNamespace()
-        plugin.create_stack = mock.AsyncMock(
+        plugin.create_stack = AsyncMock(
             side_effect=TeaException({'code': 'Timeout', 'message': 'response lost'})
         )
 
@@ -104,8 +109,8 @@ class TestIncrementalStackCreation(AsyncTestCase):
                 'Status': 'CREATE_IN_PROGRESS',
             }]
 
-        plugin.list_stacks = mock.AsyncMock(side_effect=list_stacks)
-        plugin.get_stack = mock.AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'})
+        plugin.list_stacks = AsyncMock(side_effect=list_stacks)
+        plugin.get_stack = AsyncMock(return_value={'Status': 'CREATE_IN_PROGRESS'})
         observed = []
 
         with mock.patch('iact3.stack.StackPlugin', return_value=plugin):
@@ -201,7 +206,7 @@ class TestIncrementalStackCreation(AsyncTestCase):
             stacks=[stack],
             stack_observer=lambda: observed.append(stack.status),
         )
-        stacker.execute_hooks = mock.AsyncMock()
+        stacker.execute_hooks = AsyncMock()
 
         async def delete_stack(current):
             self.assertEqual('DELETE_REQUESTING', current.status)
@@ -225,9 +230,9 @@ class TestIncrementalStackCreation(AsyncTestCase):
             stacks=[stack],
             stack_observer=mock.Mock(side_effect=RuntimeError('checkpoint failed')),
         )
-        stacker.execute_hooks = mock.AsyncMock()
+        stacker.execute_hooks = AsyncMock()
 
-        with mock.patch.object(Stack, 'delete', new=mock.AsyncMock()) as delete:
+        with mock.patch.object(Stack, 'delete', new=AsyncMock()) as delete:
             with self.assertRaisesRegex(RuntimeError, 'checkpoint failed'):
                 await stacker.delete_stacks()
 
@@ -238,11 +243,12 @@ class TestIncrementalStackCreation(AsyncTestCase):
             region='cn-hangzhou',
             stack_id='stack-deleted',
             test_name='default',
+            credential=SimpleNamespace(),
         )
         stack.status = 'CREATE_COMPLETE'
         stack.plugin = SimpleNamespace(
-            delete_stack=mock.AsyncMock(return_value=True),
-            get_stack=mock.AsyncMock(return_value=None),
+            delete_stack=AsyncMock(return_value=True),
+            get_stack=AsyncMock(return_value=None),
         )
 
         await Stack.delete(stack)
@@ -254,10 +260,11 @@ class TestIncrementalStackCreation(AsyncTestCase):
             region='cn-hangzhou',
             stack_id='stack-unknown',
             test_name='default',
+            credential=SimpleNamespace(),
         )
         stack.status = 'CREATE_COMPLETE'
         stack.plugin = SimpleNamespace(
-            delete_stack=mock.AsyncMock(return_value=False),
+            delete_stack=AsyncMock(return_value=False),
         )
 
         await Stack.delete(stack)
@@ -628,7 +635,7 @@ class TestDeletionRecovery(AsyncTestCase):
         }]
         self.runner._runs[run.id] = run
         plugin = SimpleNamespace(
-            list_stacks=mock.AsyncMock(return_value=[{
+            list_stacks=AsyncMock(return_value=[{
                 'StackId': 'stack-recovered-after-restart',
                 'StackName': 'iact3-default-cn-hangzhou-recover',
                 'Status': 'CREATE_COMPLETE',
@@ -663,7 +670,7 @@ class TestDeletionRecovery(AsyncTestCase):
             'credential_ref': {},
         }]
         self.runner._runs[run.id] = run
-        plugin = SimpleNamespace(list_stacks=mock.AsyncMock(return_value=[]))
+        plugin = SimpleNamespace(list_stacks=AsyncMock(return_value=[]))
 
         with mock.patch.object(
             routes,
@@ -673,7 +680,7 @@ class TestDeletionRecovery(AsyncTestCase):
             routes,
             'StackPlugin',
             return_value=plugin,
-        ), mock.patch.object(routes.asyncio, 'sleep', new=mock.AsyncMock()):
+        ), mock.patch.object(routes.asyncio, 'sleep', new=AsyncMock()):
             await routes._resume_pending_creations({'runner': self.runner})
 
         self.assertEqual('CREATE_UNCONFIRMED', run.stacks[0]['status'])
@@ -692,7 +699,7 @@ class TestDeletionRecovery(AsyncTestCase):
         }]
         self.runner._runs[run.id] = run
         plugin = SimpleNamespace(
-            list_stacks=mock.AsyncMock(side_effect=[
+            list_stacks=AsyncMock(side_effect=[
                 [],
                 [{
                     'StackId': 'stack-found-in-background',
