@@ -18,7 +18,7 @@ from iact3.config import TemplateConfig, BaseConfig, DEFAULT_AUTH_FILE, DEFAULT_
 from iact3.plugin.ros import StackPlugin
 from iact3.testing.ros_stack import StackTest
 from iact3.util import yaml as iact3_yaml, CustomSafeLoader, pick_cheapest_instance_type
-from iact3.web.runner import capture_iact3_logs, _RUNS_DIR
+from iact3.web.runner import capture_iact3_logs, get_credential_key_id, _RUNS_DIR
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +38,52 @@ _PROJECT_NAME_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_-]{0,254}$')
 
 def _validate_project_name(name):
     """Return True if name is a safe project identifier."""
-    return bool(name and _PROJECT_NAME_RE.match(name))
+    return bool(isinstance(name, str) and name and _PROJECT_NAME_RE.match(name))
+
+
+def _validate_template_files(template_files):
+    if template_files is None:
+        return
+    if not isinstance(template_files, dict):
+        raise ValueError('template_files must be an object')
+    for name, content in template_files.items():
+        if not isinstance(name, str) or not name or '\x00' in name:
+            raise ValueError('Every template file must have a valid string name')
+        if not isinstance(content, str):
+            raise ValueError(f'Template file {name!r} must contain text')
+        if os.path.isabs(name) or '..' in Path(name).parts or name.endswith(('/', '\\')):
+            raise ValueError(f'Unsafe template file path: {name}')
+
+
+def _json_bool(params, name, default=False):
+    if name not in params:
+        return default
+    value = params[name]
+    if not isinstance(value, bool):
+        raise ValueError(f'{name} must be a boolean')
+    return value
+
+
+def _validate_config_structure(config):
+    if config is None:
+        return {}
+    if not isinstance(config, dict):
+        raise ValueError('Config YAML must contain a mapping at the top level')
+    for section_name in ('project', 'auth'):
+        section = config.get(section_name)
+        if section is not None and not isinstance(section, dict):
+            raise ValueError(f'The {section_name} section must be a mapping')
+    parameters = config.get('parameters')
+    if parameters is not None and not isinstance(parameters, dict):
+        raise ValueError('The parameters section must be a mapping')
+    tests = config.get('tests')
+    if tests is not None:
+        if not isinstance(tests, dict):
+            raise ValueError('The tests section must be a mapping')
+        for test_name, test_config in tests.items():
+            if not isinstance(test_name, str) or not isinstance(test_config, dict):
+                raise ValueError('Every tests entry must have a string name and mapping value')
+    return config
 
 
 def _is_path_within(path, allowed_roots):
@@ -217,46 +262,24 @@ _SAMPLES = {
 
 
 def _sync_project_name_in_config(config_yaml, project_name):
-    """Inject/update project.name in config YAML content."""
+    """Set project.name without relying on the input YAML's formatting style."""
     if not config_yaml or not project_name:
         return config_yaml
-    lines = config_yaml.split('\n')
-    in_project = False
-    name_updated = False
-    name_inserted = False
-    result = []
-    name_line = f'  name: {json.dumps(project_name, ensure_ascii=False)}'
-
-    for line in lines:
-        trimmed = line.strip()
-        if re.match(r'^project\s*:', line):
-            in_project = True
-            result.append(line)
-            continue
-        if in_project and trimmed and not line.startswith(' ') and not line.startswith('\t') and trimmed != '---':
-            if not name_inserted:
-                result.append(name_line)
-                name_inserted = True
-                name_updated = True
-            in_project = False
-        if in_project and re.match(r'^\s+name\s*:', line):
-            result.append(name_line)
-            name_updated = True
-            name_inserted = True
-            continue
-        result.append(line)
-
-    if in_project and not name_inserted:
-        result.append(name_line)
-        name_updated = True
-
-    if not name_updated:
-        if result and result[-1].strip():
-            result.append('')
-        result.append('project:')
-        result.append(name_line)
-
-    return '\n'.join(result)
+    try:
+        config = iact3_yaml.safe_load(config_yaml)
+    except Exception as ex:
+        raise ValueError(f'Invalid config YAML: {ex}')
+    config = _validate_config_structure(config)
+    project = config.get('project')
+    if project is None:
+        project = {}
+    if not isinstance(project, dict):
+        raise ValueError('The project section must be a mapping')
+    if project.get('name') == project_name:
+        return config_yaml
+    project['name'] = project_name
+    config['project'] = project
+    return iact3_yaml.safe_dump(config, allow_unicode=True, sort_keys=False)
 
 
 def _strip_project_name_from_config(config_yaml):
@@ -267,22 +290,23 @@ def _strip_project_name_from_config(config_yaml):
     """
     if not config_yaml:
         return config_yaml
-    lines = config_yaml.split('\n')
-    in_project = False
-    result = []
-    for line in lines:
-        if re.match(r'^project\s*:', line):
-            in_project = True
-            result.append(line)
-            continue
-        if in_project:
-            trimmed = line.strip()
-            if trimmed and not line.startswith(' ') and not line.startswith('\t') and trimmed != '---':
-                in_project = False
-            elif re.match(r'^\s+name\s*:', line):
-                continue
-        result.append(line)
-    return '\n'.join(result)
+    try:
+        config = iact3_yaml.safe_load(config_yaml)
+    except Exception:
+        return config_yaml
+    if not isinstance(config, dict):
+        return config_yaml
+    project = config.get('project')
+    if isinstance(project, dict):
+        project = dict(project)
+        project.pop('name', None)
+        if project:
+            config = dict(config)
+            config['project'] = project
+        else:
+            config = dict(config)
+            config.pop('project', None)
+    return json.dumps(config, ensure_ascii=False, sort_keys=True, default=str)
 
 
 def _config_matches_project(raw_config, project_config_set):
@@ -295,6 +319,78 @@ def _config_matches_project(raw_config, project_config_set):
         if _strip_project_name_from_config(cfg) == normalized_run:
             return True
     return False
+
+
+def _merge_generated_parameters(config_yaml, generated_parameters):
+    """Update one test's parameters without dropping the rest of the config."""
+    if config_yaml:
+        try:
+            config = iact3_yaml.safe_load(config_yaml)
+        except Exception as ex:
+            raise ValueError(f'Invalid config YAML: {ex}')
+    else:
+        config = {}
+    if config is None:
+        config = {}
+    if not isinstance(config, dict):
+        raise ValueError('Config YAML must contain a mapping at the top level')
+
+    tests = config.get('tests')
+    if tests is not None:
+        if not isinstance(tests, dict):
+            raise ValueError('The tests section must be a mapping')
+        if 'default' in tests:
+            target_name = 'default'
+        elif len(tests) <= 1:
+            target_name = next(iter(tests), 'default')
+        else:
+            raise ValueError(
+                'Config has multiple tests but no default test; choose one before generating parameters'
+            )
+        target = tests.get(target_name)
+        if target is None:
+            target = {}
+            tests[target_name] = target
+        if not isinstance(target, dict):
+            raise ValueError(f'The tests.{target_name} section must be a mapping')
+        target['parameters'] = generated_parameters
+    else:
+        config['parameters'] = generated_parameters
+
+    return iact3_yaml.safe_dump(config, allow_unicode=True, sort_keys=False)
+
+
+def _get_target_parameters(config):
+    """Read parameters from the same test entry that generation will update."""
+    if not isinstance(config, dict):
+        return {}
+    tests = config.get('tests')
+    if isinstance(tests, dict) and tests:
+        if 'default' in tests:
+            target_name = 'default'
+        elif len(tests) == 1:
+            target_name = next(iter(tests))
+        else:
+            raise ValueError(
+                'Config has multiple tests but no default test; choose one before generating parameters'
+            )
+        target = tests.get(target_name)
+        if isinstance(target, dict) and isinstance(target.get('parameters'), dict):
+            return dict(target['parameters'])
+        return {}
+    parameters = config.get('parameters')
+    return dict(parameters) if isinstance(parameters, dict) else {}
+
+
+def _generated_parameters_response(config_yaml, generated_parameters, **extra):
+    output = io.StringIO()
+    iact3_yaml.dump({'parameters': generated_parameters}, output)
+    response = {
+        'parameters': output.getvalue(),
+        'config': _merge_generated_parameters(config_yaml, generated_parameters),
+    }
+    response.update(extra)
+    return response
 
 
 def _sync_project_name_in_runs(old_name, new_name, runner):
@@ -346,6 +442,29 @@ def _resolve_project_inputs(params):
     has_template = 'template_content' in params
     has_template_files = 'template_files' in params
     has_config = 'config_content' in params
+    if project_name is not None and not isinstance(project_name, str):
+        raise ValueError('project_name must be a string')
+    if project_name and not _validate_project_name(project_name):
+        raise ValueError('project_name is invalid')
+    if has_template and template_content is not None and not isinstance(template_content, str):
+        raise ValueError('template_content must be a string')
+    if has_config and config_content is not None and not isinstance(config_content, str):
+        raise ValueError('config_content must be a string')
+    if has_template_files:
+        _validate_template_files(template_files)
+    regions = params.get('regions')
+    if isinstance(regions, list):
+        if any(not isinstance(region, str) for region in regions):
+            raise ValueError('regions must contain only strings')
+        params['regions'] = ','.join(region.strip() for region in regions if region.strip())
+    elif regions is not None and not isinstance(regions, str):
+        raise ValueError('regions must be a string or a list of strings')
+    for field_name in ('name', 'test_names', 'log_format'):
+        value = params.get(field_name)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f'{field_name} must be a string')
+    for field_name in ('no_delete', 'keep_failed', 'dont_wait_for_delete'):
+        _json_bool(params, field_name)
 
     # Load saved project as fallback (only when editor didn't send both fields)
     saved = None
@@ -387,6 +506,15 @@ def _resolve_project_inputs(params):
     else:
         resolved_cfg = None
 
+    if resolved_files is not None:
+        _validate_template_files(resolved_files)
+    if resolved_cfg:
+        try:
+            parsed_config = iact3_yaml.safe_load(resolved_cfg)
+        except Exception as ex:
+            raise ValueError(f'Invalid config YAML: {ex}')
+        _validate_config_structure(parsed_config)
+
     # Sync project.name into config content
     if resolved_cfg and project_name:
         resolved_cfg = _sync_project_name_in_config(resolved_cfg, project_name)
@@ -423,8 +551,9 @@ def _ensure_tests_section(config_content, regions=None, project_name=None):
     # Check whether tests: section already exists
     try:
         parsed = iact3_yaml.safe_load(config_content)
-    except Exception:
-        parsed = {}
+    except Exception as ex:
+        raise ValueError(f'Invalid config YAML: {ex}')
+    parsed = _validate_config_structure(parsed)
     if parsed and parsed.get('tests'):
         return config_content  # already has tests, leave untouched
 
@@ -584,6 +713,16 @@ def _inject_auto_params(template_content, template_files, config_content):
             elif param_name not in params:
                 # Non-auto parameter: use template Default if available,
                 # otherwise use a common default or leave empty.
+                if (
+                    is_terraform
+                    and isinstance(param_def, dict)
+                    and param_def.get('has_default')
+                    and param_def.get('default') is None
+                ):
+                    # Terraform can apply complex defaults itself. Omitting the
+                    # value is safer than converting a multiline expression
+                    # into a truncated string.
+                    continue
                 params[param_name] = _get_param_default(param_name, param_def, is_terraform)
 
         return params
@@ -611,6 +750,7 @@ def _write_current_files(template_content, config_content, template_files=None, 
     written to a dedicated subdirectory so StackTest can use template_location.
     Returns: (template_path: str|None, config_path: str|None, req_id: str|None)
     """
+    _validate_template_files(template_files)
     current_dir = _UPLOAD_DIR / '_current'
     current_dir.mkdir(parents=True, exist_ok=True)
     # Always use a unique subdirectory to avoid collisions between concurrent requests
@@ -622,16 +762,11 @@ def _write_current_files(template_content, config_content, template_files=None, 
         tf_dir = req_dir
         tf_dir_resolved = tf_dir.resolve()
         for fname, fcontent in template_files.items():
-            # Reject absolute paths and path traversal in filenames
-            if os.path.isabs(fname) or '..' in Path(fname).parts:
-                LOG.warning(f'Skipping template file with unsafe path: {fname}')
-                continue
             p = (tf_dir / fname).resolve()
             try:
                 p.relative_to(tf_dir_resolved)
             except ValueError:
-                LOG.warning(f'Skipping template file outside tf_dir: {fname}')
-                continue
+                raise ValueError(f'Unsafe template file path: {fname}')
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(fcontent, encoding='utf-8')
         tpl_path = str(tf_dir.relative_to(DEFAULT_PROJECT_ROOT))
@@ -810,9 +945,23 @@ def _parse_terraform_variables(template_files):
             pos = start
             in_string = False
             in_line_comment = False
+            in_block_comment = False
+            heredoc_marker = None
             while pos < len(content) and depth > 0:
                 ch = content[pos]
-                if in_line_comment:
+                if heredoc_marker is not None:
+                    line_end = content.find('\n', pos)
+                    if line_end == -1:
+                        line_end = len(content)
+                    if content[pos:line_end].strip() == heredoc_marker:
+                        heredoc_marker = None
+                    pos = line_end + 1
+                    continue
+                if in_block_comment:
+                    if ch == '*' and pos + 1 < len(content) and content[pos + 1] == '/':
+                        in_block_comment = False
+                        pos += 1
+                elif in_line_comment:
                     if ch == '\n':
                         in_line_comment = False
                 elif in_string:
@@ -823,8 +972,16 @@ def _parse_terraform_variables(template_files):
                 else:
                     if ch == '"':
                         in_string = True
+                    elif ch == '/' and pos + 1 < len(content) and content[pos + 1] == '*':
+                        in_block_comment = True
+                        pos += 1
                     elif ch == '#' or (ch == '/' and pos + 1 < len(content) and content[pos + 1] == '/'):
                         in_line_comment = True
+                    elif ch == '<' and pos + 1 < len(content) and content[pos + 1] == '<':
+                        marker = re.match(r'<<-?([A-Za-z_][A-Za-z0-9_]*)', content[pos:])
+                        if marker:
+                            heredoc_marker = marker.group(1)
+                            pos += marker.end() - 1
                     elif ch == '{':
                         depth += 1
                     elif ch == '}':
@@ -833,24 +990,33 @@ def _parse_terraform_variables(template_files):
             if depth != 0:
                 continue
             block = content[start:pos - 1]
-            var_info = {'default': None, 'type': None, 'description': None}
+            var_info = {
+                'default': None,
+                'has_default': False,
+                'type': None,
+                'description': None,
+            }
             # Parse default value
             m_default = re.search(r'^\s*default\s*=\s*(.+)', block, re.MULTILINE)
             if m_default:
+                var_info['has_default'] = True
                 raw = m_default.group(1).strip()
                 # Handle quoted strings
                 if raw.startswith('"') and raw.endswith('"'):
                     var_info['default'] = raw[1:-1]
                 elif raw.startswith('[') or raw.startswith('{'):
-                    # Complex types - keep as string representation
-                    var_info['default'] = raw
+                    opening = raw[0]
+                    closing = ']' if opening == '[' else '}'
+                    if raw.endswith(closing):
+                        # Preserve only complete single-line collections.
+                        var_info['default'] = raw
                 elif raw.lower() == 'true':
                     var_info['default'] = 'true'
                 elif raw.lower() == 'false':
                     var_info['default'] = 'false'
                 elif raw.lower() == 'null':
                     var_info['default'] = None
-                else:
+                elif re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)', raw):
                     var_info['default'] = raw
             # Parse type
             m_type = re.search(r'^\s*type\s*=\s*(.+)', block, re.MULTILINE)
@@ -1047,81 +1213,307 @@ def _resolve_non_region_params(tests_params):
     return resolved
 
 
-def _cleanup_stale_current_files():
-    """Remove all stale temp files from .iact3/_current/ left by previous sessions.
+def _resolve_stack_credential(stack, legacy_key_id=None, credentials=None):
+    """Resolve the credential reference saved with a stack."""
+    from iact3.cli_modules.list import List
+    from iact3.config import Auth
+    from iact3.plugin.base_plugin import CredentialClient
 
-    Called once on server startup to ensure no orphaned terraform directories
-    or temp config files remain from crashed/restarted server sessions.
-    """
-    current_dir = _UPLOAD_DIR / '_current'
-    if not current_dir.exists():
-        return
-    cleaned = 0
-    # Remove all stale subdirectories (terraform_* and unique uuid hex dirs)
-    for child in current_dir.iterdir():
-        if child.is_dir():
-            try:
-                shutil.rmtree(child)
-                cleaned += 1
-            except Exception as ex:
-                LOG.warning(f'Failed to clean stale dir {child}: {ex}')
-    # Remove stale temp files (config_preview.yml is from old code, no longer used)
-    for fname in ('template.yaml', 'config.yml', 'config_preview.yml'):
-        f = current_dir / fname
-        try:
-            if f.exists():
-                f.unlink()
-        except Exception:
-            pass
-    if cleaned:
-        LOG.info(f'Cleaned {cleaned} stale temp directories from _current/')
+    credentials = credentials if credentials is not None else {}
+    credential_ref = stack.get('credential_ref') or {}
+    expected_key_id = stack.get('credential_key_id') or legacy_key_id
+    credential_key = (
+        credential_ref.get('name') or '',
+        credential_ref.get('location') or '',
+    )
+    if credential_key not in credentials:
+        if any(credential_key):
+            credential = Auth(
+                name=credential_ref.get('name'),
+                location=credential_ref.get('location'),
+            ).credential
+        else:
+            credential = List.get_credential()
+            if credential is None:
+                credential = CredentialClient()
+        if credential is None:
+            raise ValueError('The credential used to create this stack is no longer available')
+        credentials[credential_key] = credential
+    credential = credentials[credential_key]
+    actual_key_id = get_credential_key_id(credential)
+    if expected_key_id and actual_key_id != expected_key_id:
+        stack_label = stack.get('stack_id') or stack.get('stack_name') or 'pending stack'
+        LOG.warning(
+            'The credential for stack %s has changed since creation; '
+            'the delete result will be verified before it is marked complete',
+            stack_label,
+        )
+    return credential_key, credential
 
 
-async def _poll_stack_deletion(runner, run_id: str, region_groups: dict, credential):
-    """Poll ROS for stack deletion status until all reach a terminal state."""
-    from iact3.plugin.ros import StackPlugin
+def _build_deletion_groups(stacks, legacy_key_id=None):
+    """Resolve non-secret credential references and group stacks for deletion."""
+    credentials = {}
+    groups = {}
+    for stack in stacks:
+        region = stack.get('region')
+        stack_id = stack.get('stack_id')
+        if not region or not stack_id:
+            continue
+        credential_key, credential = _resolve_stack_credential(
+            stack,
+            legacy_key_id,
+            credentials,
+        )
+        group_key = (region,) + credential_key
+        group = groups.setdefault(
+            group_key,
+            {'region': region, 'credential': credential, 'stacks': []},
+        )
+        group['stacks'].append(stack)
+    return list(groups.values())
 
-    MAX_POLLS = 30  # 30 × 10s = 5 min max
-    for _ in range(MAX_POLLS):
-        await asyncio.sleep(10)
+
+def _pending_creation_stacks(run):
+    return [
+        stack
+        for stack in run.stacks
+        if (
+            not stack.get('stack_id')
+            and stack.get('status') in ('CREATE_REQUESTING', 'CREATE_UNCONFIRMED')
+            and stack.get('stack_name')
+            and stack.get('region')
+        )
+    ]
+
+
+async def _recover_pending_creation(runner, run, stack, credentials, attempts=3):
+    try:
+        _, credential = _resolve_stack_credential(
+            stack,
+            run.credential_key_id,
+            credentials,
+        )
+        plugin = StackPlugin(
+            region_id=stack['region'],
+            credential=credential,
+        )
+        recovered = None
+        for attempt in range(attempts):
+            candidates = await plugin.list_stacks(
+                stack_name=stack['stack_name'],
+            ) or []
+            recovered = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if (
+                        candidate.get('StackName') == stack['stack_name']
+                        and candidate.get('StackId')
+                    )
+                ),
+                None,
+            )
+            if recovered or attempt + 1 == attempts:
+                break
+            await asyncio.sleep(1)
+        if recovered:
+            stack['stack_id'] = recovered.get('StackId') or ''
+            stack['status'] = recovered.get('Status') or 'CREATE_IN_PROGRESS'
+            stack['status_reason'] = recovered.get('StatusReason') or ''
+            stack['create_time'] = recovered.get('CreateTime') or ''
+            stack['status_time'] = recovered.get('StatusTime') or ''
+            stack.pop('create_error', None)
+            return True
+        stack['status'] = 'CREATE_UNCONFIRMED'
+        stack['launch_succeeded'] = False
+        stack['create_error'] = (
+            'Could not confirm whether this stack was created after the server restarted. '
+            f'Check ROS for stack name {stack["stack_name"]!r}.'
+        )
+        stack['status_reason'] = stack['create_error']
+    except Exception as ex:
+        stack['status'] = 'CREATE_UNCONFIRMED'
+        stack['launch_succeeded'] = False
+        stack['create_error'] = str(ex)
+        stack['status_reason'] = str(ex)
+        LOG.warning(
+            'Could not recover stack creation for run %s: %s',
+            run.id,
+            ex,
+        )
+    return False
+
+
+async def _retry_pending_creations(
+    runner,
+    run_id,
+    poll_interval=10,
+    max_polls=180,
+):
+    """Keep checking an uncertain create request without another restart."""
+    credentials = {}
+    for poll_index in range(max_polls):
+        run = runner.get_run_raw(run_id)
+        if not run:
+            return
+        pending = _pending_creation_stacks(run)
+        if not pending:
+            return
+        for stack in pending:
+            await _recover_pending_creation(
+                runner,
+                run,
+                stack,
+                credentials,
+                attempts=1,
+            )
+        runner._save_run_to_disk(run)
+        if not _pending_creation_stacks(run):
+            return
+        if poll_index + 1 < max_polls:
+            await asyncio.sleep(poll_interval)
+
+
+async def _resume_pending_creations(app):
+    """Recover stack IDs when the server stopped during CreateStack."""
+    runner = app['runner']
+    credentials = {}
+    for run in list(runner._runs.values()):
+        pending = _pending_creation_stacks(run)
+        for stack in pending:
+            await _recover_pending_creation(
+                runner,
+                run,
+                stack,
+                credentials,
+            )
+        if pending:
+            runner._save_run_to_disk(run)
+        if _pending_creation_stacks(run) and 'creation_recovery_tasks' in app:
+            task = asyncio.create_task(_retry_pending_creations(runner, run.id))
+            app['creation_recovery_tasks'].add(task)
+            task.add_done_callback(app['creation_recovery_tasks'].discard)
+
+
+async def _poll_stack_deletion(
+    runner,
+    run_id: str,
+    deletion_groups,
+    poll_interval=10,
+    max_polls=180,
+):
+    """Poll ROS deletion state and leave a retryable status on timeout."""
+    requesting_stack_ids = {
+        stack.get('stack_id')
+        for group in deletion_groups
+        for stack in group['stacks']
+        if stack.get('status') == 'DELETE_REQUESTING'
+    }
+    for poll_index in range(max_polls):
         all_done = True
         run = runner.get_run_raw(run_id)
         if not run:
             return
-        for region, stack_ids in region_groups.items():
-            plugin = StackPlugin(region_id=region, credential=credential)
-            for stack_id in stack_ids:
+        for group in deletion_groups:
+            plugin = StackPlugin(
+                region_id=group['region'],
+                credential=group['credential'],
+            )
+            for stack in group['stacks']:
+                stack_id = stack['stack_id']
                 try:
                     info = await plugin.get_stack(stack_id)
                     if info is None:
-                        # get_stack returns None for StackNotFound —
-                        # the stack has been fully deleted by ROS.
-                        status = 'DELETE_COMPLETE'
+                        if stack_id in requesting_stack_ids:
+                            status = 'DELETE_UNCONFIRMED'
+                            stack['delete_error'] = (
+                                'ROS could not confirm whether the delete request was accepted'
+                            )
+                        else:
+                            status = 'DELETE_COMPLETE'
                     else:
                         status = info.get('Status', 'UNKNOWN')
+                        stack.pop('delete_error', None)
                 except Exception as ex:
-                    # Credential errors, timeouts, or ROS service errors
-                    # do NOT mean the stack is deleted.  Keep the current
-                    # status and retry on the next poll.
-                    LOG.warning(f'Error polling stack {stack_id} in {region}: {ex}')
-                    status = 'DELETE_IN_PROGRESS'
-                for s in run.stacks:
-                    if s.get('stack_id') == stack_id:
-                        if status in ('DELETE_COMPLETE', 'DELETE_FAILED'):
-                            s['status'] = status
-                        else:
-                            all_done = False
+                    LOG.warning(
+                        'Error polling stack %s in %s: %s',
+                        stack_id,
+                        group['region'],
+                        ex,
+                    )
+                    status = (
+                        'DELETE_REQUESTING'
+                        if stack_id in requesting_stack_ids
+                        else 'DELETE_IN_PROGRESS'
+                    )
+                    stack['delete_error'] = str(ex)
+                if stack_id in requesting_stack_ids:
+                    if status.startswith('DELETE_') and status not in (
+                        'DELETE_REQUESTING',
+                        'DELETE_UNCONFIRMED',
+                    ):
+                        requesting_stack_ids.discard(stack_id)
+                    elif not status.startswith('DELETE_'):
+                        status = 'DELETE_REQUESTING'
+                stack['status'] = status
+                if status not in (
+                    'DELETE_COMPLETE',
+                    'DELETE_FAILED',
+                    'DELETE_UNCONFIRMED',
+                ):
+                    all_done = False
         runner._save_run_to_disk(run)
         if all_done:
-            break
+            return
+        if poll_index + 1 < max_polls:
+            await asyncio.sleep(poll_interval)
+
+    for group in deletion_groups:
+        for stack in group['stacks']:
+            if stack.get('status') not in (
+                'DELETE_COMPLETE',
+                'DELETE_FAILED',
+                'DELETE_UNCONFIRMED',
+            ):
+                stack['status'] = 'DELETE_TIMEOUT'
+                stack['delete_error'] = 'Timed out while waiting for stack deletion'
+    runner._save_run_to_disk(run)
+
+
+async def _resume_pending_deletions(app):
+    runner = app['runner']
+    for run in list(runner._runs.values()):
+        pending = [
+            stack
+            for stack in run.stacks
+            if (
+                stack.get('stack_id')
+                and stack.get('status') in ('DELETE_REQUESTING', 'DELETE_IN_PROGRESS')
+            )
+        ]
+        if not pending:
+            continue
+        try:
+            groups = _build_deletion_groups(pending, run.credential_key_id)
+            if groups:
+                runner.start_background_task(
+                    run.id,
+                    _poll_stack_deletion(runner, run.id, groups),
+                )
+        except Exception as ex:
+            for stack in pending:
+                stack['status'] = 'DELETE_FAILED'
+                stack['delete_error'] = str(ex)
+            runner._save_run_to_disk(run)
+            LOG.warning('Could not resume stack deletion for run %s: %s', run.id, ex)
 
 
 def setup_routes(app: web.Application):
     """Register all API routes."""
-    # Clean up stale temp files from previous sessions
-    _cleanup_stale_current_files()
-
     runner = app['runner']
+    app.on_startup.append(_resume_pending_creations)
+    app.on_startup.append(_resume_pending_deletions)
 
     # --- API: Test Runs ---
 
@@ -1175,11 +1567,45 @@ def setup_routes(app: web.Application):
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
 
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
         if not params:
             return web.json_response({'error': 'Request body is required'}, status=400)
 
+        request_id = params.get('request_id')
+        if request_id is None:
+            request_id = str(uuid.uuid4())
+        if not isinstance(request_id, str):
+            return web.json_response(
+                {'error': 'request_id must be a UUID', 'code': 'INVALID_REQUEST_ID'},
+                status=400,
+            )
+        try:
+            request_id = str(uuid.UUID(request_id))
+        except (ValueError, AttributeError):
+            return web.json_response(
+                {'error': 'request_id must be a UUID', 'code': 'INVALID_REQUEST_ID'},
+                status=400,
+            )
+        params['request_id'] = request_id
+        run_id = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f'iact3-web-run:{request_id}',
+        ).hex[:12]
+        existing = runner.get_run_raw(run_id) or runner._load_single_run_from_disk(run_id)
+        if existing:
+            if existing.params.get('request_id') != request_id:
+                return web.json_response(
+                    {'error': 'Run request ID collision', 'code': 'REQUEST_ID_COLLISION'},
+                    status=409,
+                )
+            return web.json_response(existing.to_dict(), status=200)
+
         # Resolve content, then write to temp files for StackTest.from_file()
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         # Ensure the config has a `tests:` section so StackTest.from_file
         # creates actual test cases. Inject one using the provided regions when absent.
         regions_str = params.get('regions') or ''
@@ -1201,9 +1627,12 @@ def setup_routes(app: web.Application):
         # that may be incompatible with the target region.
         config_content = _inject_auto_params(template_content, template_files, config_content)
         # Use a unique subdirectory for this run so concurrent runs don't collide
-        run_id = uuid.uuid4().hex[:12]
+        temp_subdir = f'run_{run_id}'
         tpl_path, cfg_path, _ = _write_current_files(
-            template_content, config_content, template_files=template_files, subdir=f'terraform_{run_id}'
+            template_content,
+            config_content,
+            template_files=template_files,
+            subdir=temp_subdir,
         )
         if tpl_path:
             params['template'] = tpl_path
@@ -1223,8 +1652,12 @@ def setup_routes(app: web.Application):
 
         try:
             run = await runner.start_test_run(params, run_id=run_id)
+            run._task.add_done_callback(
+                lambda _task, subdir=temp_subdir: _cleanup_current_files(subdir=subdir)
+            )
             return web.json_response(run.to_dict(), status=201)
         except Exception as ex:
+            _cleanup_current_files(subdir=temp_subdir)
             LOG.error(f'Failed to start test run: {ex}', exc_info=True)
             return web.json_response({'error': str(ex)}, status=500)
 
@@ -1256,9 +1689,16 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
         ids = params.get('ids') or []
         if not isinstance(ids, list) or not ids:
             return web.json_response({'error': 'ids list is required'}, status=400)
+        if any(not isinstance(run_id, str) or not run_id for run_id in ids):
+            return web.json_response(
+                {'error': 'ids must contain non-empty strings', 'code': 'INVALID_RUN_IDS'},
+                status=400,
+            )
         deleted = []
         failed = []
         for run_id in ids:
@@ -1285,70 +1725,149 @@ def setup_routes(app: web.Application):
         if not stacks:
             return web.json_response({'error': 'No stacks found for this run', 'code': 'NO_STACKS'}, status=400)
 
-        # Filter out stacks that are already deleted or deleting
-        stacks_to_delete = [s for s in stacks if s.get('stack_id') and not s.get('status', '').startswith('DELETE')]
-        if not stacks_to_delete:
-            return web.json_response({'error': 'No deletable stacks found', 'code': 'NO_DELETABLE_STACKS'}, status=400)
+        if run._task and not run._task.done():
+            return web.json_response(
+                {'error': 'The test run is still in progress', 'code': 'RUN_IN_PROGRESS'},
+                status=409,
+            )
 
+        if not runner.claim_background_operation(run_id):
+            return web.json_response(
+                {'error': 'Stack deletion is already in progress', 'code': 'DELETION_IN_PROGRESS'},
+                status=409,
+            )
+
+        claimed = True
         try:
-            from iact3.cli_modules.list import List
-            from iact3.plugin.ros import StackPlugin
-            credential = List.get_credential()
+            # Failed and timed-out deletions remain eligible for retry.
+            stacks_to_delete = [
+                stack
+                for stack in stacks
+                if stack.get('stack_id') and stack.get('status') != 'DELETE_COMPLETE'
+            ]
+            if not stacks_to_delete:
+                return web.json_response(
+                    {'error': 'No deletable stacks found', 'code': 'NO_DELETABLE_STACKS'},
+                    status=400,
+                )
 
-            # Verify the current credential matches the one used to create the
-            # run's stacks.  This prevents accidental cross-account deletion when
-            # the CLI profile has been switched since the run was created.
-            current_ak = getattr(credential, 'access_key_id', '') or ''
-            current_key_id = current_ak[-4:] if len(current_ak) >= 4 else current_ak
-            if run.credential_key_id and run.credential_key_id != current_key_id:
-                return web.json_response({
-                    'error': (
-                        f'Credential mismatch: run was created with access key '
-                        f'ending in {run.credential_key_id!r}, but the current '
-                        f'credential ends in {current_key_id!r}. Switch to the '
-                        f'original profile before deleting stacks.'
-                    ),
-                    'code': 'CREDENTIAL_MISMATCH',
-                }, status=403)
-
+            deletion_groups = _build_deletion_groups(stacks_to_delete, run.credential_key_id)
             results = []
             errors = []
-
-            # Group by region to minimize plugin creation
-            region_groups = {}
-            for s in stacks_to_delete:
-                region = s.get('region')
-                if region:
-                    region_groups.setdefault(region, []).append(s['stack_id'])
+            poll_stacks = []
 
             log_path = run.log_path if run else None
             with capture_iact3_logs(log_path) if log_path else contextlib.nullcontext():
                 LOG.info(f'Starting manual stack deletion for run {run_id}, {len(stacks_to_delete)} stack(s)')
-                for region, stack_ids in region_groups.items():
-                    plugin = StackPlugin(region_id=region, credential=credential)
-                    for stack_id in stack_ids:
+                for group in deletion_groups:
+                    plugin = StackPlugin(
+                        region_id=group['region'],
+                        credential=group['credential'],
+                    )
+                    for stack in group['stacks']:
+                        stack_id = stack['stack_id']
+                        if stack.get('status') in ('DELETE_REQUESTING', 'DELETE_IN_PROGRESS'):
+                            poll_stacks.append(stack)
+                            results.append({
+                                'stack_id': stack_id,
+                                'region': group['region'],
+                                'status': 'polling',
+                            })
+                            continue
+                        previous_status = stack.get('status')
+                        stack['status'] = 'DELETE_REQUESTING'
+                        stack.pop('delete_error', None)
+                        # Checkpoint before the network call. If the process
+                        # stops after ROS accepts the request, startup can
+                        # resume by querying this stack instead of losing it.
+                        runner._save_run_to_disk(run)
                         try:
-                            LOG.info(f'Deleting stack {stack_id} in region {region}')
-                            await plugin.delete_stack(stack_id)
-                            # Record DELETE_IN_PROGRESS — ROS needs time to process.
-                            # A background task will poll for the final status.
-                            for s in run.stacks:
-                                if s.get('stack_id') == stack_id:
-                                    s['status'] = 'DELETE_IN_PROGRESS'
-                            results.append({'stack_id': stack_id, 'region': region, 'status': 'deleted'})
-                            LOG.info(f'Successfully deleted stack {stack_id} in region {region}')
+                            LOG.info(f'Deleting stack {stack_id} in region {group["region"]}')
+                            accepted = await plugin.delete_stack(stack_id)
+                            if accepted is False:
+                                stack['status'] = 'DELETE_UNCONFIRMED'
+                                stack['delete_error'] = (
+                                    'ROS could not confirm that the delete request was accepted'
+                                )
+                                errors.append({
+                                    'stack_id': stack_id,
+                                    'region': group['region'],
+                                    'error': stack['delete_error'],
+                                })
+                                continue
+                            stack['status'] = 'DELETE_IN_PROGRESS'
+                            stack.pop('delete_error', None)
+                            poll_stacks.append(stack)
+                            results.append({
+                                'stack_id': stack_id,
+                                'region': group['region'],
+                                'status': 'deleted',
+                            })
+                            LOG.info(f'Successfully deleted stack {stack_id} in region {group["region"]}')
                         except Exception as ex:
-                            LOG.error(f'Failed to delete stack {stack_id} in region {region}: {ex}')
-                            errors.append({'stack_id': stack_id, 'region': region, 'error': str(ex)})
+                            stack['delete_error'] = str(ex)
+                            LOG.error(f'Failed to delete stack {stack_id} in region {group["region"]}: {ex}')
+                            # A timeout can happen after ROS accepted the
+                            # request. Reconcile once before deciding whether
+                            # the original state is safe to restore.
+                            try:
+                                info = await plugin.get_stack(stack_id)
+                            except Exception:
+                                poll_stacks.append(stack)
+                                errors.append({
+                                    'stack_id': stack_id,
+                                    'region': group['region'],
+                                    'error': f'{ex}; deletion status will be checked in the background',
+                                })
+                            else:
+                                observed_status = (
+                                    'DELETE_UNCONFIRMED'
+                                    if info is None
+                                    else info.get('Status', previous_status)
+                                )
+                                stack['status'] = observed_status
+                                if observed_status == 'DELETE_FAILED':
+                                    errors.append({
+                                        'stack_id': stack_id,
+                                        'region': group['region'],
+                                        'error': str(ex),
+                                    })
+                                elif observed_status == 'DELETE_UNCONFIRMED':
+                                    errors.append({
+                                        'stack_id': stack_id,
+                                        'region': group['region'],
+                                        'error': (
+                                            f'{ex}; ROS could not confirm whether '
+                                            'the delete request was accepted'
+                                        ),
+                                    })
+                                elif observed_status.startswith('DELETE_'):
+                                    if observed_status != 'DELETE_COMPLETE':
+                                        poll_stacks.append(stack)
+                                    results.append({
+                                        'stack_id': stack_id,
+                                        'region': group['region'],
+                                        'status': observed_status.lower(),
+                                    })
+                                else:
+                                    stack['status'] = previous_status
+                                    errors.append({
+                                        'stack_id': stack_id,
+                                        'region': group['region'],
+                                        'error': str(ex),
+                                    })
                 LOG.info(f'Finished manual stack deletion for run {run_id}: {len(results)} succeeded, {len(errors)} failed')
 
             # Persist updated stack statuses
             runner._save_run_to_disk(run)
 
-            # Launch a background task to poll for final deletion status
-            if results:
-                asyncio.create_task(
-                    _poll_stack_deletion(runner, run_id, region_groups, credential)
+            if poll_stacks:
+                poll_groups = _build_deletion_groups(poll_stacks, run.credential_key_id)
+                runner.release_background_claim(run_id)
+                claimed = False
+                runner.start_background_task(
+                    run_id,
+                    _poll_stack_deletion(runner, run_id, poll_groups),
                 )
 
             return web.json_response({
@@ -1356,9 +1875,17 @@ def setup_routes(app: web.Application):
                 'errors': len(errors),
                 'details': results + errors,
             })
+        except ValueError as ex:
+            return web.json_response(
+                {'error': str(ex), 'code': 'CREDENTIAL_MISMATCH'},
+                status=403,
+            )
         except Exception as ex:
             LOG.error(f'Failed to delete stacks for run {run_id}: {ex}', exc_info=True)
             return web.json_response({'error': str(ex)}, status=500)
+        finally:
+            if claimed:
+                runner.release_background_claim(run_id)
 
     # --- API: Validate ---
     
@@ -1368,8 +1895,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
-    
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         regions = params.get('regions')
         template_args = {}  # Initialize for error logging
         tf_subdir = None
@@ -1396,9 +1927,7 @@ def setup_routes(app: web.Application):
                 status=400
             )
 
-        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / 'validate.log'
-        if log_path.exists():
-            log_path.unlink()
+        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / f'validate_{uuid.uuid4().hex}.log'
         try:
             with capture_iact3_logs(log_path):
                 if template_files:
@@ -1430,6 +1959,10 @@ def setup_routes(app: web.Application):
             return web.json_response({'result': 'invalid', 'error': err_msg, 'logs': logs}, status=400)
         finally:
             _cleanup_current_files(subdir=tf_subdir)
+            try:
+                log_path.unlink()
+            except FileNotFoundError:
+                pass
 
     # --- API: Cost ---
 
@@ -1439,8 +1972,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
-    
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         if not template_content and not template_files:
             project_name = params.get('project_name', '')
             hint = f'项目「{project_name}」中没有保存模板内容。' if project_name else ''
@@ -1462,10 +1999,7 @@ def setup_routes(app: web.Application):
 
         tf_subdir = None
         cfg_subdir = None
-        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / 'cost.log'
-        # Ensure each cost estimate only returns logs for this run.
-        if log_path.exists():
-            log_path.unlink()
+        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / f'cost_{uuid.uuid4().hex}.log'
         try:
             with capture_iact3_logs(log_path):
                 if template_files:
@@ -1510,6 +2044,10 @@ def setup_routes(app: web.Application):
         finally:
             _cleanup_current_files(subdir=tf_subdir)
             _cleanup_current_files(subdir=cfg_subdir)
+            try:
+                log_path.unlink()
+            except FileNotFoundError:
+                pass
 
     # --- API: Preview ---
 
@@ -1519,8 +2057,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
-    
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         if not template_content and not template_files:
             project_name = params.get('project_name', '')
             hint = f'项目「{project_name}」中没有保存模板内容。' if project_name else ''
@@ -1602,8 +2144,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
-    
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         regions = params.get('regions')
         if not template_content and not template_files:
             project_name = params.get('project_name', '')
@@ -1615,9 +2161,7 @@ def setup_routes(app: web.Application):
 
         tf_subdir = None
         policy = None
-        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / 'policy.log'
-        if log_path.exists():
-            log_path.unlink()
+        log_path = Path(DEFAULT_OUTPUT_DIRECTORY) / f'policy_{uuid.uuid4().hex}.log'
         try:
             with capture_iact3_logs(log_path):
                 _append_log(log_path, 'INFO', 'Start generating template policy.')
@@ -1647,12 +2191,15 @@ def setup_routes(app: web.Application):
             return web.json_response({'error': str(ex), 'logs': logs}, status=500)
         finally:
             _cleanup_current_files(subdir=tf_subdir)
+            try:
+                log_path.unlink()
+            except FileNotFoundError:
+                pass
 
     # --- API: Generate Parameters ---
 
     async def generate_params(request):
         """POST /api/generate-params - Auto-generate parameters from template."""
-        import io
         import logging as _logging
         from iact3.generate_params import ParamGenerator
         from iact3.config import TestConfig, Auth
@@ -1661,8 +2208,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
-        
-        template_content, template_files, config_content = _resolve_project_inputs(params)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
+        try:
+            template_content, template_files, config_content = _resolve_project_inputs(params)
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
         regions_raw = params.get('regions') or ''
         if isinstance(regions_raw, list):
             region_list = [r.strip() for r in regions_raw if r and str(r).strip()]
@@ -1706,18 +2257,9 @@ def setup_routes(app: web.Application):
             else:
                 config_dict = {}
             
-            # Extract parameters from tests section (merge all tests' parameters)
-            tests_params = {}
-            if config_dict and 'tests' in config_dict and isinstance(config_dict['tests'], dict):
-                for _test_name, test_cfg in config_dict['tests'].items():
-                    if isinstance(test_cfg, dict) and 'parameters' in test_cfg:
-                        existing_params = test_cfg['parameters']
-                        if isinstance(existing_params, dict):
-                            tests_params.update(existing_params)
-            elif config_dict and 'parameters' in config_dict:
-                existing_params = config_dict['parameters']
-                if isinstance(existing_params, dict):
-                    tests_params = existing_params
+            # Read the same test entry that the response will update. Merging
+            # every test would let a later test silently overwrite defaults.
+            tests_params = _get_target_parameters(config_dict)
             
             # ── Discover parameters from template ──
             # ParamGenerator only resolves $[iact3-auto] placeholders for
@@ -1743,6 +2285,10 @@ def setup_routes(app: web.Application):
                         if var_name not in tests_params:
                             if var_info.get('default') is not None:
                                 tests_params[var_name] = str(var_info['default'])
+                            elif var_info.get('has_default'):
+                                # Leave complex defaults unset so Terraform
+                                # applies the original expression.
+                                continue
                             elif _is_auto_resolvable(var_name):
                                 tests_params[var_name] = '$[iact3-auto]'
                             else:
@@ -1797,10 +2343,10 @@ def setup_routes(app: web.Application):
                 if is_multi_region:
                     # Reset region-specific params to $[iact3-auto] before resolving
                     tests_params = _resolve_non_region_params(tests_params)
-                    output = io.StringIO()
-                    iact3_yaml.dump({'parameters': tests_params}, output)
-                    params_yaml = output.getvalue()
-                    response_data = {'parameters': params_yaml}
+                    response_data = _generated_parameters_response(
+                        config_content,
+                        tests_params,
+                    )
                     if tf_variables:
                         tf_log_lines = [f'Found {len(tf_variables)} Terraform variable(s):']
                         for vname, vinfo in tf_variables.items():
@@ -1816,10 +2362,10 @@ def setup_routes(app: web.Application):
                     response_data['logs'] += f'\nMulti-region mode ({len(region_list)} regions): region-specific params kept as $[iact3-auto] for runtime per-region resolution.'
                     return web.json_response(response_data)
                 tests_params = await _resolve_terraform_params(tests_params, region, credential)
-                output = io.StringIO()
-                iact3_yaml.dump({'parameters': tests_params}, output)
-                params_yaml = output.getvalue()
-                response_data = {'parameters': params_yaml}
+                response_data = _generated_parameters_response(
+                    config_content,
+                    tests_params,
+                )
                 if is_multi_region:
                     response_data['logs'] = (response_data.get('logs') or '') + f'\nMulti-region mode ({len(region_list)} regions): region-specific params kept as $[iact3-auto] for runtime per-region resolution.'
                 if tf_variables:
@@ -1863,13 +2409,11 @@ def setup_routes(app: web.Application):
                 # Multi-region mode: keep region-specific params as $[iact3-auto]
                 # for runtime per-region resolution. Only resolve non-region params.
                 resolved_params = _resolve_non_region_params(tests_params)
-                output = io.StringIO()
-                iact3_yaml.dump({'parameters': resolved_params}, output)
-                params_yaml = output.getvalue()
-                response_data = {
-                    'parameters': params_yaml,
-                    'logs': f'Multi-region mode ({len(region_list)} regions): region-specific params kept as $[iact3-auto] for runtime per-region resolution.'
-                }
+                response_data = _generated_parameters_response(
+                    config_content,
+                    resolved_params,
+                    logs=f'Multi-region mode ({len(region_list)} regions): region-specific params kept as $[iact3-auto] for runtime per-region resolution.',
+                )
                 return web.json_response(response_data)
             
             # Generate parameters (capture logs for UI display)
@@ -1888,15 +2432,12 @@ def setup_routes(app: web.Application):
                 gen_logger.setLevel(old_level)
             captured_logs = log_buf.getvalue()
             
-            # Convert to YAML format: wrap under `parameters:` so the result can be
-            # directly pasted into the iact3 config file under tests.<name>.parameters.
-            output = io.StringIO()
-            iact3_yaml.dump({'parameters': result.parameters}, output)
-            params_yaml = output.getvalue()
-            
             # If there were errors, include them as warnings rather than failing.
             # Parameters that couldn't be resolved will keep their $[iact3-auto] placeholder.
-            response_data = {'parameters': params_yaml}
+            response_data = _generated_parameters_response(
+                config_content,
+                result.parameters,
+            )
             if captured_logs:
                 response_data['logs'] = captured_logs
             if result.error:
@@ -2037,8 +2578,12 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
 
         mode = params.get('mode', 'all')
+        if not isinstance(mode, str):
+            return web.json_response({'error': 'mode must be a string'}, status=400)
         output_dir = Path('iact3_outputs')
         if not output_dir.exists():
             return web.json_response({'deleted': 0, 'freed': 0})
@@ -2052,11 +2597,15 @@ def setup_routes(app: web.Application):
         elif mode == 'older_than':
             import time
             days = params.get('days', 7)
+            if isinstance(days, bool) or not isinstance(days, (int, float)) or days < 0:
+                return web.json_response({'error': 'days must be a non-negative number'}, status=400)
             cutoff = time.time() - days * 86400
             to_delete = [f for f in all_files if f.stat().st_mtime < cutoff]
 
         elif mode == 'keep_last':
             keep = params.get('keep', 10)
+            if isinstance(keep, bool) or not isinstance(keep, int) or keep < 0:
+                return web.json_response({'error': 'keep must be a non-negative integer'}, status=400)
             sorted_files = sorted(all_files, key=lambda p: p.stat().st_mtime, reverse=True)
             to_delete = sorted_files[keep:]
 
@@ -2298,9 +2847,17 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
 
-        template_path = params.get('template_path', '').strip()
+        template_path = params.get('template_path', '')
         config_file = params.get('config_file', DEFAULT_CONFIG_FILE)
+        if not isinstance(template_path, str) or not isinstance(config_file, str):
+            return web.json_response(
+                {'error': 'template_path and config_file must be strings'},
+                status=400,
+            )
+        template_path = template_path.strip()
 
         if not template_path:
             return web.json_response({'error': 'Missing template_path'}, status=400)
@@ -2377,9 +2934,14 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
 
-        file_path = params.get('path', '').strip()
+        file_path = params.get('path', '')
         content = params.get('content', '')
+        if not isinstance(file_path, str) or not isinstance(content, str):
+            return web.json_response({'error': 'path and content must be strings'}, status=400)
+        file_path = file_path.strip()
         if not file_path:
             return web.json_response({'error': 'Missing path parameter'}, status=400)
 
@@ -2682,8 +3244,13 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
 
-        name = (params.get('name') or '').strip()
+        raw_name = params.get('name')
+        if raw_name is not None and not isinstance(raw_name, str):
+            return web.json_response({'error': 'Project name must be a string'}, status=400)
+        name = (raw_name or '').strip()
         if not name:
             return web.json_response({'error': 'Project name is required'}, status=400)
         if not _validate_project_name(name):
@@ -2692,13 +3259,35 @@ def setup_routes(app: web.Application):
                 status=400
             )
 
-        old_name = (params.get('old_name') or '').strip()
+        raw_old_name = params.get('old_name')
+        if raw_old_name is not None and not isinstance(raw_old_name, str):
+            return web.json_response({'error': 'old_name must be a string'}, status=400)
+        old_name = (raw_old_name or '').strip()
         if old_name and not _validate_project_name(old_name):
             return web.json_response(
                 {'error': 'Invalid old_name: must start with a letter, contain only letters, digits, hyphens (-) or underscores (_).'},
                 status=400
             )
-        allow_overwrite = bool(params.get('allow_overwrite', False))
+        try:
+            allow_overwrite = _json_bool(params, 'allow_overwrite')
+            for bool_name in ('no_delete', 'keep_failed', 'dont_wait_for_delete'):
+                _json_bool(params, bool_name)
+            _validate_template_files(params.get('template_files'))
+        except ValueError as ex:
+            return web.json_response({'error': str(ex), 'code': 'INVALID_REQUEST'}, status=400)
+        for text_name in ('template', 'config'):
+            value = params.get(text_name)
+            if value is not None and not isinstance(value, str):
+                return web.json_response(
+                    {'error': f'{text_name} must be a string', 'code': 'INVALID_REQUEST'},
+                    status=400,
+                )
+        configs_value = params.get('configs')
+        if configs_value is not None and not isinstance(configs_value, list):
+            return web.json_response(
+                {'error': 'configs must be a list', 'code': 'INVALID_REQUEST'},
+                status=400,
+            )
 
         _PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
         project_file = _PROJECTS_DIR / f'{name}.json'
@@ -2748,11 +3337,27 @@ def setup_routes(app: web.Application):
         if not config:
             configs = params.get('configs')
             if configs and isinstance(configs, list) and len(configs) > 0:
+                if not isinstance(configs[0], dict):
+                    return web.json_response(
+                        {'error': 'configs entries must be objects', 'code': 'INVALID_REQUEST'},
+                        status=400,
+                    )
                 config = configs[0].get('config', '') or ''
+                if not isinstance(config, str):
+                    return web.json_response(
+                        {'error': 'config must be a string', 'code': 'INVALID_REQUEST'},
+                        status=400,
+                    )
 
         # Ensure config YAML has project.name matching the project name.
         if isinstance(config, str) and config:
-            config = _sync_project_name_in_config(config, name)
+            try:
+                config = _sync_project_name_in_config(config, name)
+            except ValueError as ex:
+                return web.json_response(
+                    {'error': str(ex), 'code': 'INVALID_CONFIG'},
+                    status=400,
+                )
 
         # ── Version snapshot logic ──
         # Compare new template/config with existing to decide whether to create a new version.
@@ -2769,7 +3374,9 @@ def setup_routes(app: web.Application):
         new_template = params.get('template', '')
         new_template_files = template_files if template_files is not None else (existing.get('template_files', {}) if existing else {})
 
-        if existing and (existing.get('template') or existing.get('config')):
+        if existing and (
+            existing.get('template') or existing.get('template_files') or existing.get('config')
+        ):
             old_template = existing.get('template', '')
             old_template_files = existing.get('template_files', {})
             old_config = existing.get('config', '')
@@ -2832,9 +3439,9 @@ def setup_routes(app: web.Application):
             'config': config,
             'created_at': created_at,
             'updated_at': now,
-            'no_delete': bool(params.get('no_delete', False)) if 'no_delete' in params else (existing.get('no_delete', False) if existing else False),
-            'keep_failed': bool(params.get('keep_failed', False)) if 'keep_failed' in params else (existing.get('keep_failed', False) if existing else False),
-            'dont_wait_for_delete': bool(params.get('dont_wait_for_delete', False)) if 'dont_wait_for_delete' in params else (existing.get('dont_wait_for_delete', False) if existing else False),
+            'no_delete': params['no_delete'] if 'no_delete' in params else (existing.get('no_delete', False) if existing else False),
+            'keep_failed': params['keep_failed'] if 'keep_failed' in params else (existing.get('keep_failed', False) if existing else False),
+            'dont_wait_for_delete': params['dont_wait_for_delete'] if 'dont_wait_for_delete' in params else (existing.get('dont_wait_for_delete', False) if existing else False),
             'current_version': current_version,
             'versions': versions,
         }
@@ -2873,6 +3480,8 @@ def setup_routes(app: web.Application):
             params = await request.json()
         except json.JSONDecodeError:
             return web.json_response({'error': 'Invalid JSON'}, status=400)
+        if not isinstance(params, dict):
+            return web.json_response({'error': 'Request body must be an object'}, status=400)
         names = params.get('names') or []
         if not isinstance(names, list) or not names:
             return web.json_response({'error': 'names list is required'}, status=400)

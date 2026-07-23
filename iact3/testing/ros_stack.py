@@ -12,7 +12,13 @@ LOG = logging.getLogger(__name__)
 
 class StackTest(Base):
     async def run(self) -> None:
-        self.stacker = Stacker(self.project_name, self.configs, uid=self.uid, report_path=self.report_path)
+        self.stacker = Stacker(
+            self.project_name,
+            self.configs,
+            uid=self.uid,
+            report_path=self.report_path,
+            stack_observer=self.stack_observer,
+        )
         await self.stacker.create_stacks()
         await self.printer.report_test_progress(stacker=self.stacker)
         self.passed = True

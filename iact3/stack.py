@@ -66,6 +66,8 @@ SYS_TAGS = {'CreatedBy': f'{IAC_NAME}'}
 
 class Stacker:
     NULL_UUID = uuid.UUID(int=0)
+    SETTLE_TIMEOUT_SECONDS = 60
+    CANCELLATION_GRACE_SECONDS = 5
 
     def __init__(
         self,
@@ -76,6 +78,7 @@ class Stacker:
         tags: dict = None,
         stacks: Stacks = None,
         report_path: Path = None,
+        stack_observer=None,
     ):
         self.tests = tests or []
         self.project_name = project_name
@@ -89,6 +92,7 @@ class Stacker:
         }
         self._sys_tags.update(SYS_TAGS)
         self.report_path = report_path
+        self.stack_observer = stack_observer
 
     @classmethod
     def from_stacks(cls, stacks: Stacks):
@@ -98,10 +102,65 @@ class Stacker:
         if self.stacks:
             raise Iact3Exception('Stacker already initialised with stack objects')
         self.tags.update(self._sys_tags)
+        completed = {}
+
+        def record_stack(index, stack):
+            is_new = completed.get(index) is not stack
+            completed[index] = stack
+            if is_new:
+                self.stacks[:] = [completed[i] for i in sorted(completed)]
+            if self.stack_observer:
+                self.stack_observer()
+
+        async def create_one(index, test):
+            stack = await Stack.create(
+                test,
+                self.tags,
+                self.uid,
+                self.report_path,
+                stack_created_callback=lambda created: record_stack(index, created),
+            )
+            record_stack(index, stack)
+            return stack
+
         stack_tasks = [
-            asyncio.create_task(Stack.create(test, self.tags, self.uid, self.report_path)) for test in self.tests
+            asyncio.create_task(create_one(index, test)) for index, test in enumerate(self.tests)
         ]
-        self.stacks += await asyncio.gather(*stack_tasks)
+
+        async def settle_inflight_tasks():
+            _done, pending = await asyncio.wait(
+                stack_tasks,
+                timeout=self.SETTLE_TIMEOUT_SECONDS,
+            )
+            if pending:
+                LOG.error(
+                    'Timed out waiting for %d stack creation task(s); cancelling them',
+                    len(pending),
+                )
+                for pending_task in pending:
+                    pending_task.cancel()
+                await asyncio.wait(
+                    pending,
+                    timeout=self.CANCELLATION_GRACE_SECONDS,
+                )
+            completed = [task for task in stack_tasks if task.done()]
+            await asyncio.gather(*completed, return_exceptions=True)
+
+        try:
+            for task in asyncio.as_completed(stack_tasks):
+                await task
+        except asyncio.CancelledError:
+            # A CreateStack request may already have reached ROS even when its
+            # response has not returned. Let every request settle so callbacks
+            # can checkpoint remote IDs before cancellation cleanup runs.
+            await settle_inflight_tasks()
+            raise
+        except Exception:
+            # A sibling may already have sent CreateStack even if its local
+            # await has not returned. Let every request settle so callbacks can
+            # record any remote stack IDs before cleanup starts.
+            await settle_inflight_tasks()
+            raise
 
     def status(self, **kwargs):
         stacks = self.stacks.filter(kwargs)
@@ -115,8 +174,15 @@ class Stacker:
         if stacks is None:
             stacks = self.stacks
         await self.execute_hooks(execute_time=HookExecuteTime.PRE_DELETE, stacks=stacks)
+        for stack in stacks:
+            if stack.id:
+                stack.status = 'DELETE_REQUESTING'
+        if self.stack_observer:
+            self.stack_observer()
         stack_tasks = [asyncio.create_task(Stack.delete(stack)) for stack in stacks]
         await asyncio.gather(*stack_tasks)
+        if self.stack_observer:
+            self.stack_observer()
 
     async def get_stacks_price(self):
         if self.stacks:
@@ -163,16 +229,21 @@ def criteria_matches(kwargs: dict, instance):
 class StackStatus:
     COMPLETE = ['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_COMPLETE']
     IN_PROGRESS = [
+        'CREATE_REQUESTING',
         'CREATE_IN_PROGRESS',
         'UPDATE_IN_PROGRESS',
+        'DELETE_REQUESTING',
         'DELETE_IN_PROGRESS',
         'CREATE_ROLLBACK_IN_PROGRESS',
         'ROLLBACK_IN_PROGRESS',
     ]
     FAILED = [
         'CREATE_FAILED',
+        'CREATE_UNCONFIRMED',
         'UPDATE_FAILED',
         'DELETE_FAILED',
+        'DELETE_UNCONFIRMED',
+        'DELETE_TIMEOUT',
         'CREATE_ROLLBACK_FAILED',
         'CREATE_ROLLBACK_COMPLETE',
         'ROLLBACK_FAILED',
@@ -378,7 +449,14 @@ class Stack:
         return results
 
     @classmethod
-    async def create(cls, test: TestConfig, tags: dict = None, uuid: UUID = None, report_path: Path = None) -> 'Stack':
+    async def create(
+        cls,
+        test: TestConfig,
+        tags: dict = None,
+        uuid: UUID = None,
+        report_path: Path = None,
+        stack_created_callback=None,
+    ) -> 'Stack':
         parameters = test.parameters
         template_args = test.template_config.to_dict()
         name = test.test_name
@@ -404,11 +482,27 @@ class Stack:
             stack.status = getattr(config_error, 'code', 'Unknown error')
             stack._launch_succeeded = False
             stack.timer.cancel()
+            if stack_created_callback:
+                stack_created_callback(stack)
             return stack
 
         hook_results = await cls._execute_hook(
             HookExecuteTime.PRE_CREATE, test.hooks, report_path, stack_name, uid=uuid, region=region
         )
+        stack = cls(
+            region,
+            None,
+            name,
+            uuid,
+            stack_name=stack_name,
+            parameters=parameters,
+            credential=credential,
+            test_config=test,
+            hook_results=hook_results,
+        )
+        stack.status = 'CREATE_REQUESTING'
+        if stack_created_callback:
+            stack_created_callback(stack)
         try:
             stack_id = await plugin.create_stack(
                 stack_name=stack_name,
@@ -420,34 +514,49 @@ class Stack:
                 disable_rollback=True,
             )
         except TeaException as ex:
-            stack_id = None
-            stack = cls(
-                region,
-                stack_id,
-                name,
-                uuid,
-                status_reason=ex.message,
-                stack_name=stack_name,
-                parameters=parameters,
-                credential=credential,
-                test_config=test,
-                hook_results=hook_results,
-            )
-            stack.status = ex.code
+            recovered = None
+            for attempt in range(3):
+                try:
+                    candidates = await plugin.list_stacks(stack_name=stack_name) or []
+                    recovered = next(
+                        (
+                            candidate
+                            for candidate in candidates
+                            if (
+                                candidate.get('StackName') == stack_name
+                                and candidate.get('StackId')
+                            )
+                        ),
+                        None,
+                    )
+                except Exception as lookup_error:
+                    LOG.warning(
+                        'Could not check whether stack %s was created: %s',
+                        stack_name,
+                        lookup_error,
+                    )
+                if recovered:
+                    stack.id = recovered.get('StackId')
+                    stack.status = recovered.get('Status') or 'CREATE_IN_PROGRESS'
+                    stack.status_reason = recovered.get('StatusReason') or ''
+                    stack.create_time = recovered.get('CreateTime') or ''
+                    stack.status_time = recovered.get('StatusTime') or ''
+                    if stack_created_callback:
+                        stack_created_callback(stack)
+                    await stack.refresh()
+                    return stack
+                if attempt < 2:
+                    await asyncio.sleep(1)
+            stack.status = 'CREATE_UNCONFIRMED'
+            stack.status_reason = ex.message
             stack._launch_succeeded = False
             stack.timer.cancel()
+            if stack_created_callback:
+                stack_created_callback(stack)
             return stack
-        stack = cls(
-            region,
-            stack_id,
-            name,
-            uuid,
-            stack_name=stack_name,
-            parameters=parameters,
-            credential=credential,
-            test_config=test,
-            hook_results=hook_results,
-        )
+        stack.id = stack_id
+        if stack_created_callback:
+            stack_created_callback(stack)
         await stack.refresh()
         return stack
 
@@ -581,7 +690,7 @@ class Stack:
             await self._fetch_stack_resources()
             self._last_resource_refresh = datetime.now()
 
-    async def set_stack_properties(self, stack_properties: Optional[dict] = None) -> None:
+    async def set_stack_properties(self, stack_properties: Optional[dict] = None) -> bool:
         props: dict = stack_properties if stack_properties else {}
         if not props:
             if self.id:
@@ -598,6 +707,7 @@ class Stack:
 
         if self.status not in StackStatus.IN_PROGRESS:
             self.timer.cancel()
+        return bool(props)
 
     async def events(self, refresh: bool = False) -> Events:
         if refresh or not self._events or self._auto_refresh(self._last_event_refresh):
@@ -630,10 +740,22 @@ class Stack:
         stack_id = stack.id
         if not stack_id:
             return
-        await stack.plugin.delete_stack(stack_id=stack_id)
+        accepted = await stack.plugin.delete_stack(stack_id=stack_id)
+        if accepted is False:
+            stack.status = 'DELETE_UNCONFIRMED'
+            stack.status_reason = (
+                'ROS could not confirm that the delete request was accepted'
+            )
+            stack.timer.cancel()
+            return
         LOG.info(f'Deleting stack: {stack_id}')
-        await stack.refresh()
-        stack.timer = Timer(stack.auto_refresh_interval.total_seconds(), stack.refresh)
+        stack.status = 'DELETE_IN_PROGRESS'
+        found = await stack.set_stack_properties()
+        if not found:
+            stack.status = 'DELETE_COMPLETE'
+        stack.timer.cancel()
+        if stack.status in StackStatus.IN_PROGRESS:
+            stack.timer = Timer(stack.auto_refresh_interval.total_seconds(), stack.refresh)
 
     def error_events(self, refresh=False) -> Events:
         errors = Events()

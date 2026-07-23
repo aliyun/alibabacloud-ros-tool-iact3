@@ -242,7 +242,9 @@ def rank_cheapest_instance_types(types):
                 return True
         return False
 
-    sort_key = lambda t: (_size_key(t), _family_key(t))
+    def sort_key(type_id):
+        return _size_key(type_id), _family_key(type_id)
+
     ranked = []
     seen = set()
 

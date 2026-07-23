@@ -7,7 +7,7 @@ import unittest
 from contextlib import redirect_stdout
 
 from iact3 import cli_modules
-from iact3.__main__ import _fast_help
+from iact3.__main__ import _fast_help, _should_fast_path
 from iact3.cli import CliCore
 
 
@@ -45,6 +45,10 @@ class TestFastHelpConsistency(unittest.TestCase):
     def test_global_options_listed(self):
         for opt in ('--quiet', '--debug', '--profile', '--log-prefix', '--version', '--help'):
             self.assertIn(opt, self.text, f'Global option {opt} missing from _fast_help()')
+
+    def test_nested_help_uses_the_real_command_parser(self):
+        self.assertIsNone(_should_fast_path(['server', 'start', '--help']))
+        self.assertEqual('help', _should_fast_path(['--help']))
 
 
 if __name__ == '__main__':

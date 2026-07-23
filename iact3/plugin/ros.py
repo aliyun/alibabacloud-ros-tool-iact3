@@ -96,10 +96,12 @@ class StackPlugin(ROSPlugin):
     async def delete_stack(self, stack_id, retain_all_resources=None):
         kwargs = dict(StackId=stack_id, RetainAllResources=retain_all_resources)
         try:
-            return await self.send_request('DeleteStackRequest', **kwargs)
+            await self.send_request('DeleteStackRequest', **kwargs)
+            return True
         except TeaException as ex:
             if ex.code not in self.IGNORE_ERRORS:
                 raise
+            return False
 
     async def get_stack(self, stack_id, client_token=None, output_option=None):
         kwargs = dict(

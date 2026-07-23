@@ -11,7 +11,20 @@ from iact3.plugin.base_plugin import TeaSDKPlugin
 if sys.version_info >= (3, 8):
     from unittest import IsolatedAsyncioTestCase as AsyncTestCase
 else:
-    from asynctest import TestCase as AsyncTestCase
+    from asynctest import TestCase as _AsyncTestCase
+
+    class AsyncTestCase(_AsyncTestCase):
+        """Provide the Python 3.8 async test lifecycle on Python 3.7."""
+
+        async def setUp(self):
+            async_setup = getattr(self, 'asyncSetUp', None)
+            if async_setup:
+                await async_setup()
+
+        async def tearDown(self):
+            async_teardown = getattr(self, 'asyncTearDown', None)
+            if async_teardown:
+                await async_teardown()
 
 
 def _mock_price_resources():

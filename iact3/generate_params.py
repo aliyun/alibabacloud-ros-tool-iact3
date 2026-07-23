@@ -128,6 +128,7 @@ class ParamGenerator:
         self.plugin = StackPlugin(region_id=self.region, credential=self.credential)
         self._vpc_id = None
         self._vsw_id = None
+        self._vsw_assignments = {}
         self._not_support_keys = None
         self._linked_list: LinkedList = LinkedList()
         self._unresolved_parameters = {}
@@ -148,7 +149,10 @@ class ParamGenerator:
             try:
                 await pg.resolve_auto_key()
                 LOG.debug(f'resolve auto key result: {pg.parameters}')
-                LOG.debug(f'_vpc_id={pg._vpc_id}, _vsw_id={pg._vsw_id}')
+                LOG.debug(
+                    f'_vpc_id={pg._vpc_id}, '
+                    f'_vsw_assignments={pg._vsw_assignments}'
+                )
                 # Post-resolution sync: if _gen_sg switched VPC during resolve_auto_key,
                 # ensure VpcId/VSwitchId parameters reflect the current _vpc_id/_vsw_id.
                 if pg._vpc_id:
@@ -156,11 +160,14 @@ class ParamGenerator:
                         if pg.RE_K_VPC_ID.fullmatch(pname) and pg.parameters[pname] != pg._vpc_id:
                             LOG.debug(f'post-sync: updating {pname} from {pg.parameters[pname]} to {pg._vpc_id}')
                             pg.parameters[pname] = pg._vpc_id
-                if pg._vsw_id:
-                    for pname in list(pg.parameters.keys()):
-                        if pg.RE_K_VSW_ID.fullmatch(pname) and pg.parameters[pname] != pg._vsw_id:
-                            LOG.debug(f'post-sync: updating {pname} from {pg.parameters[pname]} to {pg._vsw_id}')
-                            pg.parameters[pname] = pg._vsw_id
+                for pname, assignment in pg._vsw_assignments.items():
+                    vswitch_id = assignment['vswitch_id']
+                    if pg.parameters.get(pname) != vswitch_id:
+                        LOG.debug(
+                            f'post-sync: updating {pname} from '
+                            f'{pg.parameters.get(pname)} to {vswitch_id}'
+                        )
+                        pg.parameters[pname] = vswitch_id
             except Exception as ex:
                 # resolve_auto_key failed (e.g. no vswitch in zone), but still try
                 # to resolve remaining parameters via defaults/fallbacks.
@@ -317,9 +324,10 @@ class ParamGenerator:
                 continue
 
             if self.RE_K_VSW_ID.fullmatch(key):
-                if self._vsw_id is None:
+                if key not in self._vsw_assignments:
                     await self._gen_vpc_vsw_id(key, unresolved_value)
-                self.parameters[key] = re.sub(self.RE_V_AUTO, self._vsw_id, unresolved_value)
+                vswitch_id = self._vsw_assignments[key]['vswitch_id']
+                self.parameters[key] = re.sub(self.RE_V_AUTO, vswitch_id, unresolved_value)
             elif self.RE_K_VPC_ID.fullmatch(key):
                 if self._vpc_id is None:
                     await self._gen_vpc_vsw_id(key, unresolved_value)
@@ -636,14 +644,79 @@ class ParamGenerator:
             raise Iact3Exception(_error_message(key, value, msg))
         return vpc['VpcId']
 
+    def _zone_key_for_vswitch(self, vswitch_key):
+        zone_keys = [name for name in self.parameters if self.RE_K_ZONE_ID.fullmatch(name)]
+        if not zone_keys:
+            return None
+        suffix = re.search(r'(\d+)$', vswitch_key)
+        if suffix:
+            for zone_key in zone_keys:
+                zone_suffix = re.search(r'(\d+)$', zone_key)
+                if zone_suffix and zone_suffix.group(1) == suffix.group(1):
+                    return zone_key
+        vswitch_keys = [name for name in self.parameters if self.RE_K_VSW_ID.fullmatch(name)]
+        if vswitch_key in vswitch_keys:
+            index = vswitch_keys.index(vswitch_key)
+            if index < len(zone_keys):
+                return zone_keys[index]
+        return zone_keys[0] if len(zone_keys) == 1 else None
+
+    async def _vswitch_assignments_for_vpc(self, vpc_id, plugin):
+        assignments = {}
+        vswitch_parameters = [
+            name for name in self.parameters if self.RE_K_VSW_ID.fullmatch(name)
+        ]
+        for parameter_name in vswitch_parameters:
+            current = self._vsw_assignments.get(parameter_name, {})
+            zone_key = self._zone_key_for_vswitch(parameter_name)
+            zone_id = current.get('zone_id')
+            if not zone_id and zone_key:
+                candidate_zone = self._zone_assignments.get(
+                    zone_key,
+                    self.parameters.get(zone_key),
+                )
+                if (
+                    isinstance(candidate_zone, str)
+                    and not self.RE_V_AUTO.fullmatch(candidate_zone)
+                ):
+                    zone_id = candidate_zone
+            vswitch = await plugin.get_one_vswitch(
+                vpc_id=vpc_id,
+                zone_id=zone_id,
+            )
+            if not vswitch:
+                return None
+            assignments[parameter_name] = {
+                'vswitch_id': vswitch['VSwitchId'],
+                'zone_id': vswitch.get('ZoneId') or zone_id,
+            }
+        return assignments
+
+    def _apply_vswitch_assignments(self, vpc_id, assignments):
+        self._vpc_id = vpc_id
+        self._vsw_assignments = assignments
+        self._vsw_id = None
+        for parameter_name, assignment in assignments.items():
+            self.parameters[parameter_name] = assignment['vswitch_id']
+            if self._vsw_id is None:
+                self._vsw_id = assignment['vswitch_id']
+            zone_key = self._zone_key_for_vswitch(parameter_name)
+            zone_id = assignment.get('zone_id')
+            if zone_key and zone_id:
+                self.parameters[zone_key] = zone_id
+                self._zone_assignments[zone_key] = zone_id
+
     async def _gen_vpc_vsw_id(self, key, value):
+        vswitch_key = key if self.RE_K_VSW_ID.fullmatch(key) else None
+        if vswitch_key is None:
+            vswitch_key = next(
+                (name for name in self.parameters if self.RE_K_VSW_ID.fullmatch(name)),
+                None,
+            )
         zone_id = None
-        zone_key = None
-        for name, val in self.parameters.items():
-            if self.RE_K_ZONE_ID.fullmatch(name):
-                zone_key = name
-                zone_id = val
-                break
+        zone_key = self._zone_key_for_vswitch(vswitch_key) if vswitch_key else None
+        if zone_key:
+            zone_id = self.parameters.get(zone_key)
 
         # If the zone parameter is still unresolved ($[iact3-auto]), try to resolve it
         # so that VSwitch lookup gets a real zone value.
@@ -656,7 +729,10 @@ class ParamGenerator:
                 zone_unresolved = False
 
         plugin = VpcPlugin(self.region, credential=self.credential)
-        vsw = await plugin.get_one_vswitch(zone_id=zone_id if not zone_unresolved else None)
+        vsw = await plugin.get_one_vswitch(
+            vpc_id=self._vpc_id,
+            zone_id=zone_id if not zone_unresolved else None,
+        )
 
         # If no VSwitch found in the selected zone, try other available zones
         # before giving up.  This handles cases where the auto-selected zone
@@ -665,11 +741,16 @@ class ParamGenerator:
             LOG.debug(f'no vswitch in zone {zone_id}, trying other zones')
             if self._zone_list_cache is None:
                 self._zone_list_cache = await self._fetch_available_zones()
+            used_zones = set(self._zone_assignments.values())
+            used_zones.discard(zone_id)
             for alt_zone in self._zone_list_cache:
-                if alt_zone == zone_id:
+                if alt_zone == zone_id or alt_zone in used_zones:
                     continue
                 try:
-                    vsw = await plugin.get_one_vswitch(zone_id=alt_zone)
+                    vsw = await plugin.get_one_vswitch(
+                        vpc_id=self._vpc_id,
+                        zone_id=alt_zone,
+                    )
                     if vsw:
                         LOG.debug(f'found vswitch in alternative zone {alt_zone}')
                         # Update the zone parameter to the zone that actually has a VSwitch
@@ -686,11 +767,26 @@ class ParamGenerator:
             raise Iact3Exception(_error_message(key, value, msg))
 
         # Backfill the zone parameter with the actual zone from the found VSwitch
-        if zone_unresolved and zone_key:
-            self.parameters[zone_key] = vsw.get('ZoneId', zone_id)
+        actual_zone = vsw.get('ZoneId') or zone_id
+        if zone_key and actual_zone:
+            self.parameters[zone_key] = actual_zone
+            self._zone_assignments[zone_key] = actual_zone
 
+        if self._vpc_id and vsw['VpcId'] != self._vpc_id:
+            raise Iact3Exception(
+                _error_message(
+                    key,
+                    value,
+                    f'vswitch {vsw["VSwitchId"]} does not belong to vpc {self._vpc_id}',
+                )
+            )
         self._vpc_id = vsw['VpcId']
         self._vsw_id = vsw['VSwitchId']
+        if vswitch_key:
+            self._vsw_assignments[vswitch_key] = {
+                'vswitch_id': vsw['VSwitchId'],
+                'zone_id': actual_zone,
+            }
 
         # Proactively check for SecurityGroup: if the template has an
         # unresolved SecurityGroupId parameter, verify that the chosen VPC
@@ -716,26 +812,20 @@ class ParamGenerator:
                         continue
                     sg = await ecs_plugin.get_security_group(vpc_id=candidate_vpc_id)
                     if sg:
-                        candidate_vsw = await vpc_plugin.get_one_vswitch(vpc_id=candidate_vpc_id)
-                        if candidate_vsw:
+                        assignments = await self._vswitch_assignments_for_vpc(
+                            candidate_vpc_id,
+                            vpc_plugin,
+                        )
+                        if assignments is not None:
                             old_vpc_id = self._vpc_id
-                            old_vsw_id = self._vsw_id
-                            self._vpc_id = candidate_vpc_id
-                            self._vsw_id = candidate_vsw['VSwitchId']
-                            # Update zone if the new VSwitch is in a different zone
-                            new_zone = candidate_vsw.get('ZoneId', '')
-                            if new_zone and new_zone != zone_id:
-                                zone_id = new_zone
-                                if zone_key:
-                                    self.parameters[zone_key] = zone_id
-                                    self._zone_assignments[zone_key] = zone_id
-                            # Sync VpcId/VSwitchId parameters
-                            for pname in list(self.parameters.keys()):
-                                if self.RE_K_VPC_ID.fullmatch(pname) and self.parameters[pname] == old_vpc_id:
+                            self._apply_vswitch_assignments(candidate_vpc_id, assignments)
+                            for pname in list(self.parameters):
+                                if self.RE_K_VPC_ID.fullmatch(pname):
                                     self.parameters[pname] = self._vpc_id
-                                elif self.RE_K_VSW_ID.fullmatch(pname) and self.parameters[pname] == old_vsw_id:
-                                    self.parameters[pname] = self._vsw_id
-                            LOG.debug(f'switched to vpc {self._vpc_id} (vswitch={self._vsw_id}, sg={sg["SecurityGroupId"]})')
+                            LOG.debug(
+                                f'switched from vpc {old_vpc_id} to {self._vpc_id} '
+                                f'(vswitches={self._vsw_assignments}, sg={sg["SecurityGroupId"]})'
+                            )
                             break
 
         return self._vpc_id, self._vsw_id
@@ -760,6 +850,16 @@ class ParamGenerator:
 
         # Pick a zone not yet assigned to any other ZoneId parameter
         used_zones = set(self._zone_assignments.values())
+        used_zones.update(
+            value
+            for name, value in self.parameters.items()
+            if (
+                name != zone_key
+                and self.RE_K_ZONE_ID.fullmatch(name)
+                and isinstance(value, str)
+                and not self.RE_V_AUTO.fullmatch(value)
+            )
+        )
         for zone in zones:
             if zone not in used_zones:
                 self._zone_assignments[zone_key] = zone
@@ -957,7 +1057,6 @@ class ParamGenerator:
         if not sg:
             # Current VPC has no usable security group; try other VPCs in the region.
             old_vpc_id = self._vpc_id
-            old_vsw_id = self._vsw_id
             LOG.debug(f'no security group found in vpc {self._vpc_id}, trying other VPCs')
             vpc_plugin = VpcPlugin(self.region, credential=self.credential)
             response = await vpc_plugin.send_request('DescribeVpcsRequest', PageSize=50)
@@ -968,21 +1067,26 @@ class ParamGenerator:
                     continue  # already tried
                 sg = await ecs_plugin.get_security_group(vpc_id=candidate_vpc_id)
                 if sg:
+                    assignments = await self._vswitch_assignments_for_vpc(
+                        candidate_vpc_id,
+                        vpc_plugin,
+                    )
+                    if assignments is None:
+                        LOG.debug(
+                            f'vpc {candidate_vpc_id} has a security group but '
+                            'does not have VSwitches in every selected zone'
+                        )
+                        sg = None
+                        continue
                     LOG.debug(f'found security group {sg["SecurityGroupId"]} in vpc {candidate_vpc_id}')
-                    self._vpc_id = candidate_vpc_id
-                    # Also update VSwitch to one in the new VPC
-                    vsw = await vpc_plugin.get_one_vswitch(vpc_id=candidate_vpc_id)
-                    if vsw:
-                        self._vsw_id = vsw['VSwitchId']
-                    # Sync parameters dict: replace old VpcId/VSwitchId with new ones
-                    LOG.debug(f'syncing VpcId/VSwitchId params: old_vpc={old_vpc_id} new_vpc={self._vpc_id}, old_vsw={old_vsw_id} new_vsw={self._vsw_id}')
-                    for pname in list(self.parameters.keys()):
-                        if self.RE_K_VPC_ID.fullmatch(pname) and self.parameters[pname] == old_vpc_id:
+                    self._apply_vswitch_assignments(candidate_vpc_id, assignments)
+                    for pname in list(self.parameters):
+                        if self.RE_K_VPC_ID.fullmatch(pname):
                             self.parameters[pname] = self._vpc_id
-                            LOG.debug(f'updated parameter {pname}: {old_vpc_id} -> {self._vpc_id}')
-                        elif self.RE_K_VSW_ID.fullmatch(pname) and self._vsw_id and old_vsw_id and self.parameters[pname] == old_vsw_id:
-                            self.parameters[pname] = self._vsw_id
-                            LOG.debug(f'updated parameter {pname}: {old_vsw_id} -> {self._vsw_id}')
+                    LOG.debug(
+                        f'synced vpc {old_vpc_id} -> {self._vpc_id}, '
+                        f'vswitches={self._vsw_assignments}'
+                    )
                     break
         if not sg:
             msg = f'can not find security group in any vpc in {self.region} region'

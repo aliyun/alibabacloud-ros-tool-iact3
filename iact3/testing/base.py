@@ -41,6 +41,7 @@ class Base(metaclass=abc.ABCMeta):
         oss_config: OssConfig = None,
         auth: Auth = None,
         report_path: Path = None,
+        stack_observer=None,
     ):
         self.project_name = project_name
         self.configs = configs
@@ -57,6 +58,7 @@ class Base(metaclass=abc.ABCMeta):
         self.oss_config = oss_config
         self.auth = auth
         self.report_path = report_path
+        self.stack_observer = stack_observer
 
     async def __aenter__(self) -> Any:
         LOG.info(f'test {self.uid} start running.')
@@ -85,6 +87,7 @@ class Base(metaclass=abc.ABCMeta):
         test_names: str = None,
         output_directory: str = None,
         template_content: str = None,
+        stack_observer=None,
     ) -> T:
         args = {}
         project_root = DEFAULT_PROJECT_ROOT  # default, may be overridden below
@@ -140,6 +143,7 @@ class Base(metaclass=abc.ABCMeta):
             oss_config=base_config.project.oss_config,
             auth=base_config.general.auth,
             report_path=report_path,
+            stack_observer=stack_observer,
         )
 
     async def report(self, log_format=None):

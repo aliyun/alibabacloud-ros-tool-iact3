@@ -57,9 +57,9 @@ commands:
 def _should_fast_path(args):
     if not args:
         return 'help'
-    if args[0] in ('-v', '--version'):
+    if len(args) == 1 and args[0] in ('-v', '--version'):
         return 'version'
-    if any(a in ('-h', '--help') for a in args):
+    if len(args) == 1 and args[0] in ('-h', '--help'):
         return 'help'
     return None
 
