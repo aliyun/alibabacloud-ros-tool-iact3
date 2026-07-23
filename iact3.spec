@@ -59,6 +59,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('iact3/report/html.css', 'iact3/report'),
+        ('iact3/web/static', 'iact3/web/static'),
     ],
     hiddenimports=hiddenimports,
     hookspath=[],

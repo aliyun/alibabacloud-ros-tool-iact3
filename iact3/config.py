@@ -255,8 +255,7 @@ class TemplateConfig(JsonSchemaMixin, allow_additional_props=False):
             if not tf_content:
                 return
 
-            common_path = os.path.commonpath(list(tf_content))
-            work_space = {p.replace(common_path + '/', ''): value for p, value in tf_content.items()}
+            work_space = {os.path.relpath(p, template_path): value for p, value in tf_content.items()}
             return {
                 'ROSTemplateFormatVersion': '2015-09-01',
                 'Transform': self._get_tf_version(),

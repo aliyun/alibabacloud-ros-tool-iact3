@@ -6,6 +6,11 @@ from iact3.plugin.base_plugin import TeaSDKPlugin
 class VpcBasePlugin(TeaSDKPlugin):
     product = 'VPC'
 
+    def __init__(self, region_id: str, credential=None, config_kwargs: dict = None, endpoint: str = None):
+        if not endpoint:
+            endpoint = f'vpc.{region_id}.aliyuncs.com'
+        super().__init__(region_id, credential=credential, config_kwargs=config_kwargs, endpoint=endpoint)
+
     def api_client(self):
         return Client
 

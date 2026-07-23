@@ -3,6 +3,8 @@ import asyncio
 import importlib
 import logging
 import os
+import ssl as _ssl
+import types
 
 from Tea.core import TeaCore
 from Tea.exceptions import TeaException
@@ -18,6 +20,38 @@ from iact3.plugin import error_code
 from iact3.util import pascal_to_snake
 
 LOG = logging.getLogger(__name__)
+
+# --- Targeted SSL fix for Tea SDK (Python 3.12+) ---
+# The Tea SDK (alibabacloud-tea) incorrectly uses ssl.Purpose.CLIENT_AUTH
+# (a server-side context) for client HTTPS connections. Python 3.12 with
+# OpenSSL 3.x enforces this strictly and raises:
+#   "Cannot create a client socket with a PROTOCOL_TLS_SERVER context"
+#
+# Instead of patching the global ssl module, we install a proxy only in the
+# Tea.core module namespace so other code in the process is unaffected.
+import Tea.core as _tea_core
+
+_original_cdc = _ssl.create_default_context
+
+
+class _TeaSSLProxy(types.ModuleType):
+    """Proxy for ssl module that fixes Purpose.CLIENT_AUTH → SERVER_AUTH.
+
+    Only installed in Tea.core's namespace; does not affect the global
+    ssl module used by other libraries.
+    """
+
+    def __getattr__(self, name):
+        return getattr(_ssl, name)
+
+    @staticmethod
+    def create_default_context(purpose=_ssl.Purpose.SERVER_AUTH, **kwargs):
+        if purpose == _ssl.Purpose.CLIENT_AUTH:
+            purpose = _ssl.Purpose.SERVER_AUTH
+        return _original_cdc(purpose, **kwargs)
+
+
+_tea_core.ssl = _TeaSSLProxy('ssl')
 
 DEFAULT_INI_CREDENTIAL_FILE_PATHS = [
     os.path.join(HOME, '.alibabacloud/credentials.ini'),
@@ -95,10 +129,12 @@ class TeaSDKPlugin(metaclass=abc.ABCMeta):
     @property
     def client(self):
         if not self._client:
-            client = self.api_client()(self.config)
+            self._client = self.api_client()(self.config)
             if not self.endpoint:
-                self.endpoint = getattr(client, '_endpoint', '')
-            return self.api_client()(self.config)
+                self.endpoint = getattr(self._client, '_endpoint', '')
+            elif hasattr(self._client, '_endpoint'):
+                # Force override SDK's internal endpoint resolver
+                self._client._endpoint = self.endpoint
         return self._client
 
     async def send_request(self, request_name: str, ignore_exception: bool = False, **kwargs) -> dict:

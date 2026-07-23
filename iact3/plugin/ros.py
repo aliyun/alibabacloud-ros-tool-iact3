@@ -30,7 +30,14 @@ class StackPlugin(ROSPlugin):
 
         json_dumps_param = {}
         for k, v in parameters.items():
-            json_dumps_param[k] = json.dumps(v) if isinstance(v, (list, dict)) else v
+            if isinstance(v, (list, dict)):
+                json_dumps_param[k] = json.dumps(v)
+            elif isinstance(v, bool):
+                json_dumps_param[k] = str(v).lower()
+            elif v is not None:
+                json_dumps_param[k] = str(v)
+            else:
+                json_dumps_param[k] = v
 
         kwargs['Parameters'] = [
             dict(ParameterKey=k, ParameterValue=v) for k, v in json_dumps_param.items() if v is not None
@@ -137,9 +144,31 @@ class StackPlugin(ROSPlugin):
         kwargs = dict(StackId=stack_id)
         return await self.fetch_all('ListStackEventsRequest', kwargs, 'Events')
 
-    async def get_regions(self) -> list:
-        response = await self.send_request('DescribeRegionsRequest')
-        return [region['RegionId'] for region in response['Regions'] or []]
+    async def get_regions(self, lang: str = None) -> list:
+        """Return a list of region ID strings.
+
+        This is the original return type; existing callers in
+        cli_modules/base.py and cli_modules/list.py expect strings.
+        """
+        kwargs = {}
+        if lang:
+            kwargs['AcceptLanguage'] = 'zh-CN' if lang == 'zh' else 'en-US'
+        response = await self.send_request('DescribeRegionsRequest', **kwargs)
+        return [
+            region['RegionId']
+            for region in (response['Regions'] or [])
+        ]
+
+    async def get_regions_with_names(self, lang: str = None) -> list:
+        """Return a list of {'id': ..., 'name': ...} dicts for UI display."""
+        kwargs = {}
+        if lang:
+            kwargs['AcceptLanguage'] = 'zh-CN' if lang == 'zh' else 'en-US'
+        response = await self.send_request('DescribeRegionsRequest', **kwargs)
+        return [
+            {'id': region['RegionId'], 'name': region.get('LocalName', region['RegionId'])}
+            for region in (response['Regions'] or [])
+        ]
 
     async def get_parameter_constraints(
         self,

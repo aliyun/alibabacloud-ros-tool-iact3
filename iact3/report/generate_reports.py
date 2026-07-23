@@ -53,6 +53,7 @@ class ReportBuilder:
             with tag("head"):
                 doc.stag("meta", charset="utf-8")
                 doc.stag("meta", name="viewport", content="width=device-width")
+                doc.stag("base", target="_blank")
                 with tag("style", type="text/css"):
                     text(output_css)
                 with tag("title"):
@@ -105,13 +106,13 @@ class ReportBuilder:
                                         text(region)
                                     with tag("td", "class=text-left"):
                                         ref_url = f"https://ros.console.aliyun.com/{region}/stacks/{stack_id}"
-                                        with tag("a", href=ref_url):
+                                        with tag("a", href=ref_url, target="_blank"):
                                             text(stack_name)
                                     with tag("td", css):
                                         text(str(status))
                                     with tag("td", "class=text-left"):
                                         clog = f"{stack_name}-{region}.txt"
-                                        with tag("a", href=clog):
+                                        with tag("a", href=clog, target="_blank"):
                                             text("View Logs ")
                                 success = stack.launch_succeeded
                                 if not success:

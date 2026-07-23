@@ -91,7 +91,7 @@ class TerminalPrinter:
                     association_prefix = association_product
                     if isinstance(v, dict) and "Result" in v:
                         association_prefix = (
-                            v["Type"][v["Type"].index("::") + 2 :] if "Type" in v else association_product
+                            v["Type"][v["Type"].index("::") + 2 :] if "Type" in v and "::" in v["Type"] else association_product
                         )
                         try:
                             association_price = {
@@ -157,7 +157,9 @@ class TerminalPrinter:
                         price_detail.append(resource_price)
                         pass
 
-                    _format_association_price(v["Result"], price_detail, v["Type"][v["Type"].index("::") + 2 :])
+                    _format_association_price(
+                        v["Result"], price_detail, v["Type"][v["Type"].index("::") + 2 :] if "::" in v["Type"] else v["Type"]
+                    )
 
                 tab = tabulate.tabulate(price_detail, headers="keys")
                 tab_lines = tab.splitlines()
@@ -234,7 +236,9 @@ class TerminalPrinter:
                 for r in stack.preview_result:
                     resources_json = {
                         "LogicalResourceId": r["LogicalResourceId"],
-                        "ResourceType": r["ResourceType"][r["ResourceType"].index("::") + 2 :],
+                        "ResourceType": (
+                            r["ResourceType"][r["ResourceType"].index("::") + 2 :] if "::" in r["ResourceType"] else r["ResourceType"]
+                        ),
                     }
                     properties_str = json.dumps(
                         r["Properties"], sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False

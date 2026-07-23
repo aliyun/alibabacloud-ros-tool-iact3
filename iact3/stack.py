@@ -261,6 +261,8 @@ class Stack:
         self._status: str = ''
         self.status_reason: str = status_reason or ''
         self._launch_succeeded: bool = False
+        self.create_time: str = ''
+        self.status_time: str = ''
         self.auto_refresh_interval: timedelta = timedelta(seconds=5)
         self._last_event_refresh: datetime = datetime.fromtimestamp(0)
         self._last_resource_refresh: datetime = datetime.fromtimestamp(0)
@@ -584,8 +586,10 @@ class Stack:
         if not props:
             if self.id:
                 props = await self.plugin.get_stack(self.id, output_option='Disabled') or {}
-        self.status = props.get('Status')
-        self.status_reason = props.get('StatusReason')
+        self.status = props.get('Status') or self._status  # preserve previous status if API returns empty
+        self.status_reason = props.get('StatusReason') or self.status_reason
+        self.create_time = props.get('CreateTime') or self.create_time
+        self.status_time = props.get('StatusTime') or self.status_time
 
         outputs_status = ('CREATE_COMPLETE', 'UPDATE_COMPLETE', 'CREATE_FAILED', 'UPDATE_FAILED')
         if self.status in outputs_status and self.outputs is None:

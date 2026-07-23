@@ -1,1 +1,2 @@
 recursive-include iact3/report *.css
+recursive-include iact3/web/static *

@@ -15,6 +15,7 @@ from iact3.config import (
     OssConfig,
     Auth,
     TEMPLATE_LOCATION,
+    TEMPLATE_BODY,
     DEFAULT_CONFIG_FILE,
     DEFAULT_OUTPUT_DIRECTORY,
 )
@@ -83,11 +84,16 @@ class Base(metaclass=abc.ABCMeta):
         rerun_failed: bool = False,
         test_names: str = None,
         output_directory: str = None,
+        template_content: str = None,
     ) -> T:
         args = {}
+        project_root = DEFAULT_PROJECT_ROOT  # default, may be overridden below
         if regions:
             args[REGIONS] = regions.split(',')
-        if project_path:
+        if template_content:
+            # CRITICAL: Use template_body directly to avoid stale file reads
+            args[TEMPLATE_CONFIG] = {TEMPLATE_BODY: template_content}
+        elif project_path:
             project_root = Path(project_path).expanduser().resolve()
             if template:
                 template = template.lstrip('/')
@@ -109,6 +115,16 @@ class Base(metaclass=abc.ABCMeta):
         project_name = base_config.project.name
         if not project_name:
             raise Iact3Exception('project name should be specified')
+
+        # If regions were explicitly provided (e.g. from the Web UI region selector),
+        # override the regions in every test config so the UI selection takes priority
+        # over whatever is written in the config file.
+        if regions:
+            override_regions = [r.strip() for r in regions.split(',') if r.strip()]
+            if override_regions:
+                for test_cfg in base_config.tests.values():
+                    test_cfg.regions = override_regions
+
         configs = await base_config.get_all_configs(test_names)
 
         output_directory = output_directory or DEFAULT_OUTPUT_DIRECTORY

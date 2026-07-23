@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iact3 - IaC Template Testing Tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=10">
+</head>
+<body>
+<div id="app">
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="topbar-logo">
+            <img src="/static/img/iact3-logo.png" alt="iact3" class="topbar-logo-img">
+            <span class="topbar-logo-name">iact3</span>
+            <span class="topbar-logo-sub" data-i18n="appSubtitle">IaC Testing Tool</span>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-lang">
+            <button class="topbar-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+            <button class="topbar-lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+        </div>
+    </header>
+
+    <div class="layout">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <ul class="nav-menu">
+            <li><a href="#" data-page="playground" class="active" data-i18n="navPlayground">Playground</a></li>
+            <li class="hidden"><a href="#" data-page="projects" data-i18n="navProjects">Projects</a></li>
+            <li><a href="#" data-page="tasks" data-i18n="navTasks">Tasks</a></li>
+        </ul>
+    </nav>
+
+    <main class="main">
+        <!-- Playground -->
+        <div id="page-playground" class="page active">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="playgroundTitle">Run</h2>
+                    <p class="page-desc" data-i18n="playgroundDesc">Select a sample or paste your own template, then run a test.</p>
+                </div>
+            </div>
+            <div class="playground">
+                <div class="pg-toolbar">
+                    <div class="sample-select hidden">
+                        <label data-i18n="sampleLabel">Sample</label>
+                        <select id="sample-select"></select>
+                    </div>
+                    <div class="run-options hidden">
+                        <label><input type="checkbox" id="opt-no-delete"> <span data-i18n="optNoDelete">No Delete</span></label>
+                        <label><input type="checkbox" id="opt-keep-failed"> <span data-i18n="optKeepFailed">Keep Failed</span></label>
+                        <label><input type="checkbox" id="opt-dont-wait"> <span data-i18n="optDontWait">Don't Wait Delete</span></label>
+                    </div>
+                    <div class="pg-example-actions">
+                        <button class="btn btn-sm" id="load-ros-example" data-i18n="rosExampleBtn" data-i18n-title="rosExampleTooltip">ROS Example</button>
+                        <button class="btn btn-sm" id="load-tf-example" data-i18n="tfExampleBtn" data-i18n-title="tfExampleTooltip">Terraform Example</button>
+                    </div>
+                    <div class="spacer"></div>
+                    <div class="pg-save-project-wrap hidden" id="pg-save-project-wrap">
+                        <button id="btn-pg-save-project" class="btn" data-i18n="saveProjectBtn">Save as Project</button>
+                        <div class="pg-save-popover" id="pg-save-popover">
+                            <input type="text" id="pg-project-name-input" maxlength="255" data-i18n-placeholder="newProjectName" placeholder="Project name..." autocomplete="off">
+                            <button class="btn btn-primary btn-sm" id="btn-pg-save-confirm" data-i18n="saveBtn">Save</button>
+                            <button class="btn btn-sm" id="btn-pg-save-cancel" data-i18n="cancelBtn">Cancel</button>
+                        </div>
+                    </div>
+                    <button id="btn-policy" class="btn" data-i18n="policyBtn" data-i18n-title="policyTooltip">Generate Policy</button>
+                    <button id="btn-cost" class="btn" data-i18n="costBtn">Estimate Cost</button>
+                    <button id="btn-run" class="btn btn-primary" data-i18n="runBtn">Run Test</button>
+                </div>
+
+                <div class="pg-body" id="pg-body">
+                    <div class="editor-pane">
+                        <div class="editor-pane-title">
+                            <span class="pg-body-toggle" id="pg-body-toggle" data-i18n-title="collapseEditorHint">▼</span>
+                            <span class="required">*</span>
+                            <span data-i18n="templateLabel">Template Content</span>
+                            <div class="editor-pane-title-actions">
+                                <!-- Unified template upload / open menu -->
+                                <div class="tf-open-menu" id="template-upload-menu">
+                                    <button class="btn btn-sm tf-open-trigger" id="template-upload-trigger" data-i18n-title="uploadFileTooltip" title="Upload ROS template">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    </button>
+                                    <div class="tf-open-dropdown" id="template-upload-dropdown">
+                                        <!-- content rendered by JS based on current tab -->
+                                    </div>
+                                </div>
+                                <!-- Hidden file inputs for template upload / open -->
+                                <input type="file" id="upload-template" accept=".json,.yaml,.yml" hidden>
+                                <input type="file" id="upload-template-file" accept=".tf" hidden>
+                                <input type="file" id="upload-template-dir" webkitdirectory directory multiple hidden>
+                            </div>
+                        </div>
+                        <div class="template-format-bar" id="template-format-bar">
+                            <div class="template-format-tabs" id="template-format-tabs">
+                                <button type="button" class="format-btn active" id="tab-json" data-format="json" data-i18n="jsonTab">JSON</button>
+                                <button type="button" class="format-btn" id="tab-yaml" data-format="yaml" data-i18n="yamlTab">YAML</button>
+                            </div>
+                        </div>
+                        <div class="template-editor-wrap">
+                            <div id="tf-file-list" class="tf-file-list hidden">
+                                <div class="tf-file-list-header">
+                                    <span data-i18n="tfDirTitle">Directory</span>
+                                    <div class="tf-add-menu">
+                                        <button class="tf-add-trigger" id="tf-add-trigger" title="+">+</button>
+                                        <div class="tf-add-dropdown" id="tf-add-dropdown">
+                                            <div class="tf-add-item" data-action="file" data-i18n="createFile">Create File</div>
+                                            <div class="tf-add-item" data-action="folder" data-i18n="createFolder">Create Folder</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="tf-file-tree" class="tf-file-tree"></div>
+                            </div>
+                            <div class="tf-editor-area" id="tf-editor-area">
+                                <div class="tf-tabs-bar hidden" id="tf-tabs-bar"></div>
+                                <div class="code-editor" id="template-code-editor">
+                                    <div class="line-numbers" id="template-line-numbers">1</div>
+                                    <div class="highlight-wrap">
+                                        <pre class="highlight-layer" aria-hidden="true"><code id="template-highlight"></code></pre>
+                                        <textarea id="template-editor" spellcheck="false"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-pane config-editor-pane">
+                        <div class="editor-head config-editor-head">
+                            <span data-i18n="configLabel">Parameters</span>
+                            <button type="button" class="btn btn-sm btn-generate-params" id="btn-generate-params" data-i18n="generateParamsBtn" data-i18n-title="generateParamsTooltip" title="Auto-generate parameters from template with $[iact3-auto] placeholders">Auto Generate</button>
+                        </div>
+                        <div class="config-format-bar">
+                            <label class="config-region-label" data-i18n="regionLabel">Region</label>
+                            <div class="pg-region-wrap">
+                                <div class="pg-region-trigger" id="pg-region-trigger">
+                                    <span class="pg-region-text"></span>
+                                    <span class="custom-select-arrow">▼</span>
+                                </div>
+                                <div class="region-dropdown pg-region-dropdown" id="pg-region-dropdown"></div>
+                            </div>
+                            <span class="config-region-hint" id="config-region-hint" style="display:none;"></span>
+                        </div>
+                        <div class="code-editor config-code-editor">
+                            <div class="highlight-wrap">
+                                <pre class="highlight-layer" aria-hidden="true"><code id="config-highlight" class="language-yaml"></code></pre>
+                                <textarea id="config-editor" spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pg-output" id="pg-output">
+                    <div class="output-head" data-i18n-title="collapseOutputHint" title="Click to collapse/expand output">
+                        <span id="pg-output-title" data-i18n="resultTitle">Result</span>
+                        <div class="output-actions">
+                            <button class="btn btn-sm" id="btn-copy-output" data-i18n="copyBtn">Copy</button>
+                            <button class="btn btn-sm" id="btn-clear-output" data-i18n="clearBtn">Clear</button>
+                        </div>
+                    </div>
+                    <div class="output-tabs-bar" id="pg-output-tabs">
+                        <button type="button" class="output-tab" data-action="policy" data-i18n="policyTab">Policy</button>
+                        <button type="button" class="output-tab" data-action="cost" data-i18n="costTab">Cost</button>
+                        <button type="button" class="output-tab" data-action="run" data-i18n="runTab">Run</button>
+                    </div>
+                    <div class="output-body" id="pg-output-body">
+                        <div class="output-pane hidden" id="output-pane-policy">
+                            <div class="output-result" id="result-policy"></div>
+                            <div class="output-section logs-section collapsed" id="logs-section-policy">
+                                <div class="output-section-head">
+                                    <span class="output-section-toggle">▼</span>
+                                    <span data-i18n="logsTitle">Logs</span>
+                                    <button type="button" class="btn btn-xs output-section-copy" data-i18n="copyBtn">Copy</button>
+                                </div>
+                                <div class="output-section-body" id="log-policy"></div>
+                            </div>
+                        </div>
+                        <div class="output-pane hidden" id="output-pane-cost">
+                            <div class="output-result" id="result-cost"></div>
+                            <div class="output-section logs-section collapsed" id="logs-section-cost">
+                                <div class="output-section-head">
+                                    <span class="output-section-toggle">▼</span>
+                                    <span data-i18n="logsTitle">Logs</span>
+                                    <button type="button" class="btn btn-xs output-section-copy" data-i18n="copyBtn">Copy</button>
+                                </div>
+                                <div class="output-section-body" id="log-cost"></div>
+                            </div>
+                        </div>
+                        <div class="output-pane hidden" id="output-pane-run">
+                            <div class="output-result" id="result-run"></div>
+                            <div class="output-section logs-section collapsed" id="logs-section-run">
+                                <div class="output-section-head">
+                                    <span class="output-section-toggle">▼</span>
+                                    <span data-i18n="logsTitle">Logs</span>
+                                    <button type="button" class="btn btn-xs output-section-copy" data-i18n="copyBtn">Copy</button>
+                                </div>
+                                <div class="output-section-body" id="log-run"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects -->
+        <div id="page-projects" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="projectTitle">Projects</h2>
+                    <p class="page-desc" data-i18n="projectDesc">Manage saved template + config pairs.</p>
+                </div>
+                <button id="btn-new-project" class="btn btn-primary btn-sm" data-i18n="newProjectBtn" data-i18n-title="newProjectBtnTooltip">New Project</button>
+            </div>
+            <div class="project-toolbar">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="checkbox" id="project-select-all" title="Select all">
+                </div>
+                <input type="text" id="project-search" data-i18n-placeholder="searchProject" placeholder="Search projects..." style="padding:6px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13px;">
+            </div>
+            <div class="project-table-wrap">
+                <table class="project-table">
+                    <thead>
+                        <tr>
+                            <th style="width:32px"><input type="checkbox" id="project-select-all-header" title="Select all"></th>
+                            <th data-i18n="projectName">Name</th>
+                            <th data-i18n="projectType">Type</th>
+                            <th data-i18n="projectResources">Resources</th>
+                            <th data-i18n="projectTests">Tests</th>
+                            <th data-i18n="projectUpdated">Updated</th>
+                            <th class="actions-cell" data-i18n="projectActions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projects-list"></tbody>
+                </table>
+            </div>
+            <div class="project-footer-bar">
+                <div class="project-batch-left">
+                    <span id="project-selected-count" class="project-selected-count"></span>
+                    <button id="btn-batch-delete-project" class="btn btn-sm btn-danger" data-i18n="batchDeleteBtn" data-i18n-title="batchDeleteBtnTooltip" disabled>Batch Delete</button>
+                </div>
+                <div id="project-pagination" class="project-pagination"></div>
+            </div>
+        </div>
+
+        <!-- Project Detail -->
+        <div id="page-project-detail" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="projectDetailTitle">Project Detail</h2>
+                </div>
+                <div class="detail-actions">
+                    <div class="project-detail-region-wrap">
+                        <span class="project-detail-config-label" data-i18n="pdRegionLabel">Region:</span>
+                        <select id="pd-region-select" class="pd-region-select"></select>
+                    </div>
+                    <button id="btn-project-detail-load" class="btn btn-sm" data-i18n="loadProjectBtn" data-i18n-title="loadProjectBtnTooltip">Load</button>
+                    <button id="btn-project-detail-run" class="btn btn-primary btn-sm" data-i18n="runBtn" data-i18n-title="runBtnTooltip">Run Test</button>
+                    <button id="btn-project-detail-edit" class="btn btn-sm" data-i18n="editProjectBtn" data-i18n-title="editProjectBtnTooltip">Edit</button>
+                    <button id="btn-project-detail-back" class="btn btn-sm" data-i18n="backBtn" data-i18n-title="backBtnTooltip">Back</button>
+                </div>
+            </div>
+            <div class="project-detail-tabs-bar" id="project-detail-tabs-bar">
+                <button type="button" class="project-detail-tab active" data-pd-tab="overview" data-i18n="detailOverview">Overview</button>
+                <button type="button" class="project-detail-tab" data-pd-tab="template" data-i18n="templateLabel">Template Content</button>
+                <button type="button" class="project-detail-tab" data-pd-tab="configs" data-i18n="parametersLabel">Parameters</button>
+                <button type="button" class="project-detail-tab" data-pd-tab="runs" data-i18n="projectRunHistory">Run History</button>
+                <button type="button" class="project-detail-tab" data-pd-tab="versions" data-i18n="versionHistory">Version History</button>
+            </div>
+            <div class="project-detail-tab-body">
+                <div class="project-detail-tab-pane active" id="project-detail-pane-overview">
+                    <div id="project-detail-overview"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="project-detail-pane-template">
+                    <div id="project-detail-template"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="project-detail-pane-configs">
+                    <div id="project-detail-configs"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="project-detail-pane-runs">
+                    <div id="project-detail-runs"></div>
+                    <div id="run-history-pagination" class="run-history-pagination"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="project-detail-pane-versions">
+                    <div id="project-detail-versions"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks -->
+        <div id="page-tasks" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="tasksTitle">Tasks</h2>
+                    <p class="page-desc" data-i18n="tasksDesc">Running and finished test runs.</p>
+                </div>
+            </div>
+            <div class="task-toolbar">
+                <div class="task-filter-row">
+                    <input type="text" id="task-search" data-i18n-placeholder="searchTask" placeholder="Search tasks..." class="task-search-input">
+                    <div class="custom-select task-status-filter" id="task-status-filter">
+                        <div class="custom-select-trigger">
+                            <span class="custom-select-text"></span>
+                            <span class="custom-select-arrow">▼</span>
+                        </div>
+                        <div class="custom-select-dropdown"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="task-table-wrap">
+                <table class="task-table">
+                    <thead>
+                        <tr>
+                            <th style="width:32px"><input type="checkbox" id="task-select-all-header" title="Select all"></th>
+                            <th data-i18n="taskName">Name</th>
+                            <th data-i18n="taskStatus">Status</th>
+                            <th data-i18n="taskProgress">Progress</th>
+                            <th data-i18n="taskCreated">Created</th>
+                            <th data-i18n="taskDuration">Duration</th>
+                            <th class="actions-cell" data-i18n="taskActions" style="text-align:center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-list"></tbody>
+                </table>
+            </div>
+            <div class="task-footer-bar">
+                <div class="task-batch-left">
+                    <span id="task-selected-count" class="task-selected-count"></span>
+                    <button id="btn-batch-delete-task" class="btn btn-sm btn-danger" data-i18n="batchDeleteBtn" disabled>Batch Delete</button>
+                </div>
+                <div id="task-pagination" class="task-pagination"></div>
+            </div>
+        </div>
+
+        <!-- Task Detail -->
+        <div id="page-detail" class="page">
+            <div class="page-header">
+                <div>
+                    <h2 data-i18n="detailTitle">Task Detail</h2>
+                </div>
+                <div class="detail-actions">
+                    <div id="detail-header-actions"></div>
+                    <button id="btn-detail-back" class="btn" data-i18n="backBtn">Back</button>
+                </div>
+            </div>
+            <div class="project-detail-tabs-bar" id="task-detail-tabs-bar">
+                <button type="button" class="project-detail-tab active" data-td-tab="overview" data-i18n="detailOverview">Overview</button>
+                <button type="button" class="project-detail-tab" data-td-tab="stacks" data-i18n="detailStacks">Stacks</button>
+                <button type="button" class="project-detail-tab" data-td-tab="template" data-i18n="detailTemplate">Template</button>
+                <button type="button" class="project-detail-tab" data-td-tab="params" data-i18n="detailParams">Configuration</button>
+                <button type="button" class="project-detail-tab" data-td-tab="logs" data-i18n="detailLogs">CLI Logs</button>
+            </div>
+            <div class="project-detail-tab-body">
+                <div class="project-detail-tab-pane active" id="task-detail-pane-overview">
+                    <div id="detail-overview"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="task-detail-pane-stacks">
+                    <div id="detail-stacks"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="task-detail-pane-template">
+                    <div id="detail-template"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="task-detail-pane-params">
+                    <div id="detail-params"></div>
+                </div>
+                <div class="project-detail-tab-pane" id="task-detail-pane-logs">
+                    <div id="detail-logs" class="log-list"><div class="empty-state" data-i18n="noLogs">No logs available yet.</div></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="report-modal" class="modal-overlay">
+    <div class="modal-content modal-content-report">
+        <div class="modal-header">
+            <h3 id="report-modal-title" data-i18n="viewReportBtn">View Report</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <a id="report-modal-open" href="#" target="_blank" class="btn btn-sm" data-i18n="openInNewTab">Open in New Tab</a>
+                <button type="button" class="btn btn-sm" id="report-modal-close" data-i18n="closeBtn">Close</button>
+            </div>
+        </div>
+        <div class="modal-body modal-body-iframe">
+            <iframe id="report-iframe" src="" frameborder="0" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"></iframe>
+        </div>
+    </div>
+</div>
+
+<div id="version-modal" class="version-modal-overlay">
+    <div class="version-modal">
+        <div class="version-modal-header">
+            <h3 id="version-modal-title"></h3>
+            <button type="button" class="btn btn-sm" id="version-modal-close" data-i18n="closeBtn">Close</button>
+        </div>
+        <div class="version-modal-body" id="version-modal-body"></div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Project Edit Modal -->
+<div id="project-edit-modal" class="modal-overlay">
+    <div class="modal-content modal-content-edit">
+        <div class="modal-header">
+            <div class="project-edit-name-wrap">
+                <input type="text" id="project-edit-name" class="project-edit-name-input" maxlength="255" data-i18n-placeholder="projectNamePlaceholder" placeholder="项目名称" autocomplete="off">
+                <div class="project-edit-name-hint" id="project-edit-name-hint"></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <div class="version-select-wrap" id="project-edit-version-wrap" style="display:none;">
+                    <label data-i18n="versionSelect">Version:</label>
+                    <select id="project-edit-version-select" class="version-select"></select>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" id="project-edit-save" data-i18n="saveBtn">Save</button>
+                <button type="button" class="btn btn-sm" id="project-edit-close" data-i18n="closeBtn">Close</button>
+            </div>
+        </div>
+        <div class="project-edit-options-bar">
+            <span class="project-edit-options-title" data-i18n="projectEditOptionsTitle">Runtime Options</span>
+            <span class="project-edit-options-hint" data-i18n="projectEditOptionsHint">Defaults: stacks are deleted after the test</span>
+            <label title="Keep created stacks after the test completes" data-i18n-title="optNoDeleteTooltip"><input type="checkbox" id="project-edit-no-delete"> <span data-i18n="optNoDelete">Keep stacks after test</span></label>
+            <label title="Keep stacks when a test fails for troubleshooting" data-i18n-title="optKeepFailedTooltip"><input type="checkbox" id="project-edit-keep-failed"> <span data-i18n="optKeepFailed">Keep failed stacks</span></label>
+            <label title="Do not wait for stack deletion to complete" data-i18n-title="optDontWaitTooltip"><input type="checkbox" id="project-edit-dont-wait"> <span data-i18n="optDontWait">Don't wait for delete</span></label>
+        </div>
+        <div class="modal-body project-edit-body">
+            <div class="project-edit-pane">
+                <div class="editor-head project-edit-template-head">
+                    <div class="template-main-tabs">
+                        <button type="button" class="tab-btn active" id="project-edit-tab-ros" data-pe-template-tab="ros" data-i18n="rosTab">ROS</button>
+                        <button type="button" class="tab-btn" id="project-edit-tab-terraform" data-pe-template-tab="terraform" data-i18n="terraformTab">Terraform</button>
+                    </div>
+                </div>
+                <div class="code-editor pe-code-editor">
+                    <div class="highlight-wrap">
+                        <pre class="highlight-layer" aria-hidden="true"><code id="pe-template-highlight"></code></pre>
+                        <textarea id="project-edit-template" spellcheck="false"></textarea>
+                    </div>
+                </div>
+                <div class="template-format-hint" id="project-edit-template-hint"></div>
+                <div class="template-editor-wrap hidden" id="project-edit-tf-wrap">
+                    <div class="tf-file-list" style="width:180px;min-width:140px;max-width:240px;">
+                        <div class="tf-file-list-header">
+                            <span data-i18n="tfDirTitle">Directory</span>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <div class="tf-open-menu" id="project-edit-tf-open-menu">
+                                    <button class="tf-open-trigger" id="project-edit-tf-open-trigger" data-i18n-title="openLocalTooltip" title="Open local Terraform file or folder">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    </button>
+                                    <div class="tf-open-dropdown" id="project-edit-tf-open-dropdown">
+                                        <label class="tf-open-item" for="project-edit-upload-template-file" data-i18n="openLocalFile">Open Local File</label>
+                                        <div class="tf-open-item" id="project-edit-open-folder-item" data-i18n="openLocalFolder">Open Local Folder</div>
+                                    </div>
+                                </div>
+                                <button class="tf-add-trigger" id="project-edit-tf-clear" data-i18n-title="clearTemplateTooltip" title="Clear all files">×</button>
+                                <div class="tf-add-menu" id="project-edit-tf-add-menu">
+                                    <button class="tf-add-trigger" id="project-edit-tf-add-trigger" title="+">+</button>
+                                    <div class="tf-add-dropdown" id="project-edit-tf-add-dropdown">
+                                        <div class="tf-add-item" data-pe-tf-action="file" data-i18n="createFile">Create File</div>
+                                        <div class="tf-add-item" data-pe-tf-action="folder" data-i18n="createFolder">Create Folder</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="file" id="project-edit-upload-template-file" accept=".tf" hidden>
+                        <input type="file" id="project-edit-upload-template-dir" webkitdirectory directory multiple hidden>
+                        <div class="tf-file-tree" id="project-edit-tf-file-tree"></div>
+                    </div>
+                    <div class="tf-editor-area">
+                        <div class="code-editor pe-tf-code-editor">
+                            <div class="highlight-wrap">
+                                <pre class="highlight-layer" aria-hidden="true"><code id="pe-tf-highlight"></code></pre>
+                                <textarea id="project-edit-tf-template" spellcheck="false" data-i18n-placeholder="tfEditorPlaceholder" placeholder="Select or create a .tf file"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="project-edit-pane">
+                <div class="editor-head project-edit-config-head">
+                    <span data-i18n="parametersLabel">Parameters</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                    </div>
+                </div>
+                <div class="project-edit-generate-row">
+                    <button type="button" class="btn btn-sm btn-generate-params" id="project-edit-generate-params" data-i18n="generateParamsBtn" data-i18n-title="generateParamsTooltip">Auto Generate</button>
+                    <label for="project-edit-region" data-i18n="regionLabel">Region</label>
+                    <select id="project-edit-region" class="project-edit-region-select"></select>
+                </div>
+                <div class="code-editor pe-config-code-editor">
+                    <div class="highlight-wrap">
+                        <pre class="highlight-layer" aria-hidden="true"><code id="pe-config-highlight" class="language-yaml"></code></pre>
+                        <textarea id="project-edit-config" spellcheck="false"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Policy Modal -->
+<div id="policy-modal" class="modal-overlay">
+    <div class="modal-content modal-content-policy">
+        <div class="modal-header">
+            <h3 data-i18n="policyTitle">RAM Policy</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button type="button" class="btn btn-sm" id="policy-modal-copy" data-i18n="copyBtn">Copy</button>
+                <button type="button" class="btn btn-sm" id="policy-modal-close" data-i18n="closeBtn">Close</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <pre id="policy-body" class="policy-body"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- Unified Result Modal -->
+<div id="result-modal" class="modal-overlay">
+    <div class="modal-content modal-content-result">
+        <div class="modal-header">
+            <h3 id="result-modal-title" data-i18n="resultTitle">Result</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button type="button" class="btn btn-sm" id="result-modal-copy" data-i18n="copyBtn">Copy</button>
+                <button type="button" class="btn btn-sm" id="result-modal-close" data-i18n="closeBtn">Close</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <pre id="result-body" class="result-body"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div id="confirm-modal" class="modal-overlay">
+    <div class="modal-content confirm-modal-content">
+        <div class="confirm-modal-icon" id="confirm-modal-icon"></div>
+        <div class="confirm-modal-body">
+            <h3 class="confirm-modal-title" id="confirm-modal-title"></h3>
+            <p class="confirm-modal-message" id="confirm-modal-message"></p>
+            <p class="confirm-modal-warning" id="confirm-modal-warning"></p>
+            <div class="confirm-modal-verify hidden" id="confirm-modal-verify">
+                <p class="confirm-modal-verify-hint" id="confirm-modal-verify-hint"></p>
+                <input type="text" class="confirm-modal-verify-input" id="confirm-modal-verify-input" autocomplete="off">
+            </div>
+        </div>
+        <div class="confirm-modal-actions">
+            <button type="button" class="btn" id="confirm-modal-cancel" data-i18n="cancelBtn">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirm-modal-ok" data-i18n="confirmBtn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Prompt Dialog -->
+<div id="prompt-modal" class="modal-overlay">
+    <div class="modal-content prompt-modal-content">
+        <div class="prompt-modal-body">
+            <h3 class="prompt-modal-title" id="prompt-modal-title">New File</h3>
+            <input type="text" class="prompt-modal-input" id="prompt-modal-input" autocomplete="off">
+        </div>
+        <div class="prompt-modal-actions">
+            <button type="button" class="btn" id="prompt-modal-cancel" data-i18n="cancelBtn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="prompt-modal-ok" data-i18n="confirmBtn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="/static/hcl.js?v=1"></script>
+<script src="/static/i18n.js?v=11"></script>
+<script src="/static/app.js?v=24"></script>
+</body>
+</html>
