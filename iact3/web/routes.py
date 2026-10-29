@@ -483,7 +483,7 @@ def _resolve_project_inputs(params):
     # Resolve template files (Terraform directory mode) - takes priority over single content
     if has_template_files:
         resolved_files = template_files
-    elif saved and saved.get('template_files'):
+    elif not has_template and saved and saved.get('template_files'):
         resolved_files = saved['template_files']
     else:
         resolved_files = None
@@ -1124,9 +1124,9 @@ async def _resolve_terraform_params(tests_params, region, credential, multi_regi
         sd_key = next((k for k in resolved if RE_K_SYSTEM_DISK.fullmatch(k)
                        and isinstance(resolved[k], str) and RE_V_AUTO.fullmatch(resolved[k])), None)
         if it_key:
+            resolved_disk = None
             try:
                 ecs_plugin = EcsPlugin(region, credential=credential)
-                resolved_disk = None
                 if sd_key:
                     # Query with each disk category filter in priority order
                     for disk_cat in SAFE_DISK_CATEGORIES:
@@ -2665,7 +2665,7 @@ def setup_routes(app: web.Application):
                     break
                 size += len(chunk)
                 if size > max_size:
-                    file_path.unlink(missing_ok=True)
+                    file_path.unlink()
                     return web.json_response({'error': 'File too large (max 5MB)'}, status=400)
                 f.write(chunk)
 

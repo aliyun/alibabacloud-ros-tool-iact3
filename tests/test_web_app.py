@@ -125,6 +125,16 @@ class TestWebAuthentication(AsyncTestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, self.mutation_count)
 
+    async def test_signed_in_index_and_unauthorized_report(self):
+        response = await self.client.get('/outputs/report')
+        self.assertEqual(response.status, 401)
+        response = await self.client.post('/session', data={'token': 'test-access-token'}, allow_redirects=False)
+        self.assertEqual(response.status, 303)
+        response = await self.client.get('/')
+        self.assertEqual(response.status, 200)
+        self.assertIn('iact3', (await response.text()).lower())
+        self.assertIn('no-store', response.headers['Cache-Control'])
+
 
 class TestServerBinding(AsyncTestCase):
     def test_second_server_cannot_manage_the_same_workspace(self):

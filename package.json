@@ -1,0 +1,14 @@
+{
+  "name": "iact3-web-tests",
+  "private": true,
+  "scripts": {
+    "test:web": "node --test tests/web/*.test.cjs",
+    "coverage:web": "IACT3_COVERAGE=1 nyc --all --include 'iact3/web/static/**/*.js' --reporter=text --reporter=lcov node --test tests/web/*.test.cjs"
+  },
+  "devDependencies": {
+    "istanbul-lib-instrument": "6.0.3",
+    "js-yaml": "4.1.0",
+    "jsdom": "26.1.0",
+    "nyc": "17.1.0"
+  }
+}

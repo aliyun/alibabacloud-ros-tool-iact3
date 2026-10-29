@@ -3,12 +3,34 @@ name: Unit Tests
 on:
   pull_request: {}
   push:
-    branches: [master]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
+  web-test:
+    name: Web JavaScript tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run coverage:web
+      - name: Check web coverage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+            python3 scripts/check_web_coverage.py coverage/lcov.info "$BASE_SHA"
+          else
+            python3 scripts/check_web_coverage.py coverage/lcov.info
+          fi
+
   test:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-22.04
@@ -19,6 +41,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -32,4 +56,23 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run unit tests
+        if: matrix.python-version != '3.14'
         run: uv run pytest tests
+
+      - name: Run unit tests with coverage
+        if: matrix.python-version == '3.14'
+        run: |
+          uv pip install coverage==7.17.0
+          .venv/bin/coverage run --branch --source=iact3 -m pytest tests
+          .venv/bin/coverage json -o coverage.json
+
+      - name: Check coverage
+        if: matrix.python-version == '3.14'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+            .venv/bin/python scripts/check_coverage.py coverage.json "$BASE_SHA"
+          else
+            .venv/bin/python scripts/check_coverage.py coverage.json
+          fi
