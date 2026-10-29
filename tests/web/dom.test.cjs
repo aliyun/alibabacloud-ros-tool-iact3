@@ -2543,7 +2543,7 @@ test('report viewer escapes content and copies the selected log', async () => {
     w.renderReport({ logs: [{ name: '<log>', content: '<script>alert(1)</script>' }] });
     const container = w.document.getElementById('detail-report');
     assert.equal(container.querySelector('script'), null);
-    assert.match(container.textContent, /<script>/);
+    assert.ok(container.textContent.includes('<script>'));
     container.querySelector('.log-copy').click();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(copied, '<script>alert(1)</script>');
