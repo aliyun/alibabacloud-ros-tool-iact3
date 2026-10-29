@@ -9,6 +9,6 @@
     "istanbul-lib-instrument": "6.0.3",
     "js-yaml": "4.1.0",
     "jsdom": "26.1.0",
-    "nyc": "17.1.0"
+    "nyc": "18.0.0"
   }
 }
