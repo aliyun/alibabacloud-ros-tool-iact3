@@ -221,8 +221,10 @@ def criteria_matches(kwargs: dict, instance):
     for k, v in kwargs.items():
         ins_v = getattr(instance, k)
         if isinstance(v, list):
-            return ins_v in v
-        return ins_v == v
+            if ins_v not in v:
+                return False
+        elif ins_v != v:
+            return False
     return True
 
 
@@ -406,7 +408,7 @@ class Stack:
             result = text.replace("$[stack.region]", region)
 
         if "$[stack.name]" in text:
-            result = text.replace("$[stack.name]", stack_name)
+            result = result.replace("$[stack.name]", stack_name)
         return result
 
     async def execute_hook(self, execute_time, report_path, uid):

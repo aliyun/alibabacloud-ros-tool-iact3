@@ -409,9 +409,8 @@ class ParamGenerator:
 
         self._linked_list = linked_list
         first_selector = linked_list.first()
-        if not first_selector:
-            return resolved_parameters
-        resolved_parameters = await self._select_value(first_selector)
+        if first_selector:
+            resolved_parameters = await self._select_value(first_selector)
         self.parameters.update(resolved_parameters)
         self.parameters.update(self._unresolved_parameters)
         return self.parameters

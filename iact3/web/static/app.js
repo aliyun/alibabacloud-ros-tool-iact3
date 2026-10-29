@@ -660,7 +660,9 @@ function formatCliOutput(data, opts = {}) {
     if (visited.has(data)) return `${pad}<circular>`;
     visited.add(data);
     if (Array.isArray(data)) {
-        return data.map((item, i) => formatCliOutput(item, { indent: indent + 1, visited })).join('\n') || `${pad}<empty list>`;
+        const result = data.map(item => formatCliOutput(item, { indent: indent + 1, visited })).join('\n');
+        visited.delete(data);
+        return result || `${pad}<empty list>`;
     }
     const lines = [];
     for (const [key, value] of Object.entries(data)) {
@@ -711,7 +713,7 @@ function showCredentialMissingModal() {
     const cancelBtn = el('confirm-modal-cancel');
 
     if (icon) { icon.className = 'confirm-modal-icon icon-danger'; icon.textContent = ''; }
-    if (titleEl) titleEl.textContent = t('credentialMissingTitle');
+    if (titleEl) { titleEl.textContent = t('credentialMissingTitle'); titleEl.classList.remove('hidden'); }
     if (msgEl) msgEl.innerHTML = t('credentialMissingMessage');
     if (warnEl) warnEl.classList.add('hidden');
     if (verifyEl) verifyEl.classList.add('hidden');
@@ -763,6 +765,7 @@ function showConfirm(message, { danger = false, okText = null, cancelText = null
         let onVerifyKeydown = null;
         if (verify && verify.expected) {
             verifyHintEl.textContent = verify.hint || '';
+            verifyHintEl.classList.remove('hidden');
             verifyInput.value = '';
             verifyInput.placeholder = verify.placeholder || '';
             verifyEl.classList.remove('hidden');
@@ -1866,6 +1869,7 @@ function openTfFile(path) {
 }
 
 function closeTfFile(path) {
+    syncEditorToActive();
     state.tfOpenFiles = state.tfOpenFiles.filter(p => p !== path);
     if (state.tfActiveFile === path) {
         const next = state.tfOpenFiles[state.tfOpenFiles.length - 1] || null;
@@ -1970,11 +1974,12 @@ async function renameTfNode(oldPath, isFolder) {
     if (newName === null || !newName || newName === oldName) return;
     const parent = oldPath.includes('/') ? oldPath.split('/').slice(0, -1).join('/') : '';
     const newPath = parent ? `${parent}/${newName}` : newName;
+    syncEditorToActive();
     if (isFolder) {
         const oldPrefix = `${oldPath}/`;
         const newPrefix = `${newPath}/`;
         const entries = Object.entries(state.tfFiles).filter(([p]) => p === oldPath || p.startsWith(oldPrefix));
-        if (entries.some(([p]) => p === newPath || p.startsWith(`${newPath}/`))) {
+        if (Object.keys(state.tfFiles).some(p => p === newPath || p.startsWith(`${newPath}/`))) {
             toast(t('pathExists') || 'Target already exists', 'error');
             return;
         }
@@ -2623,15 +2628,18 @@ function pollRunInModal(runId) {
     let lastLogLength = 0;
     let logTimer = null;
     let pollTimer = null;
+    let finalTimer = null;
     let stopped = false;
     let logErrorReported = false;
     let statusErrorReported = false;
+    let poller = null;
 
     const stop = () => {
         stopped = true;
         if (logTimer) clearInterval(logTimer);
         if (pollTimer) clearTimeout(pollTimer);
-        if (state._activeRunPoller && state._activeRunPoller.runId === runId) {
+        if (finalTimer) clearTimeout(finalTimer);
+        if (state._activeRunPoller === poller) {
             state._activeRunPoller = null;
         }
     };
@@ -2639,6 +2647,7 @@ function pollRunInModal(runId) {
     const fetchLogs = async (final = false) => {
         try {
             const logs = await api('GET', `/api/runs/${runId}/logs`);
+            if (stopped) return;
             if (typeof logs === 'string' && logs.length > lastLogLength) {
                 const newLogs = logs.substring(lastLogLength).trim();
                 if (newLogs) consoleLog(newLogs, { type: 'info', action: 'run', level: 'INFO', raw: true });
@@ -2658,6 +2667,7 @@ function pollRunInModal(runId) {
         if (stopped) return;
         try {
             const run = await api('GET', `/api/runs/${runId}`);
+            if (stopped) return;
             statusErrorReported = false;
             // Update the run result panel without switching focus away from other actions.
             const runContainer = el('result-run');
@@ -2677,8 +2687,8 @@ function pollRunInModal(runId) {
                 // Final log fetch immediately, then one more after a short delay
                 // to catch any trailing writes (e.g. DELETE_COMPLETE / completed).
                 fetchLogs(true);
-                setTimeout(() => {
-                    fetchLogs(true);
+                finalTimer = setTimeout(async () => {
+                    await fetchLogs(true);
                     stop();
                 }, 1500);
             }
@@ -2696,7 +2706,8 @@ function pollRunInModal(runId) {
 
     // Closing the modal only hides the overlay; polling continues so that
     // progress and logs are still printed to the console output area.
-    state._activeRunPoller = { stop, runId };
+    poller = { stop, runId };
+    state._activeRunPoller = poller;
     poll();
     fetchLogs();
     logTimer = setInterval(fetchLogs, 3000);
@@ -3192,7 +3203,7 @@ function logCostSummary(prices) {
             consoleLog(t('costLogEmpty', { hint: t('costNoResultHint') }), { type: 'warn', action: 'cost' });
             return;
         }
-        const total = rows.reduce((sum, r) => sum + (Number(r.tradeAmount) || 0), 0);
+        const total = rows.reduce((sum, r) => sum + (r.resource ? (Number(r.tradeAmount) || 0) : 0), 0);
         const currency = rows.find(r => r.currency && r.currency !== '-')?.currency || 'CNY';
         const units = [...new Set(rows.map(r => r.periodUnit).filter(u => u && u !== '-'))];
         const unit = units.length === 1 ? (units[0].startsWith('/') ? units[0] : '/' + units[0]) : '';
@@ -3673,7 +3684,9 @@ async function renameProjectEditTfFile(oldPath) {
         toast(t('fileExists') || 'File already exists', 'error');
         return;
     }
-    const content = state.projectEditTfFiles[oldPath];
+    const content = state.projectEditTfActiveFile === oldPath
+        ? el('project-edit-tf-template').value
+        : state.projectEditTfFiles[oldPath];
     delete state.projectEditTfFiles[oldPath];
     state.projectEditTfFiles[clean] = content;
     if (state.projectEditTfActiveFile === oldPath) state.projectEditTfActiveFile = clean;
@@ -5493,7 +5506,7 @@ async function renderVersionHistory(projectName) {
             btn.addEventListener('click', () => deleteVersion(projectName, Number(btn.dataset.ver)));
         });
     } catch (e) {
-        container.innerHTML = `<div class="empty-state">${e.message}</div>`;
+        container.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
     }
 }
 

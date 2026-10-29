@@ -27,7 +27,7 @@ def test_unit_tests_workflow_runs_full_python_test_suite():
     job = workflow["jobs"]["test"]
 
     assert triggers["pull_request"] == {}
-    assert triggers["push"]["branches"] == ["master"]
+    assert triggers["push"]["branches"] == ["main", "master"]
     assert job["strategy"]["matrix"]["python-version"] == ["3.7", "3.14"]
 
     steps = job["steps"]

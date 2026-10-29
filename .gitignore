@@ -19,6 +19,10 @@ alibabacloud_ros_iact3.egg-info/
 /tests/iact3_outputs/
 .tox/
 node_modules/
+/.nyc_output/
+/coverage/
+/.coverage
+/coverage.json
 website/build/
 website/.docusaurus/
 website/.cache-loader/

@@ -96,15 +96,9 @@ class TestConfig(BaseTest):
         self.assertEqual(8, len(configs))
 
     def test_auth(self):
-        default_auth = Auth()
-        default_file = Path(DEFAULT_AUTH_FILE).expanduser().resolve()
-        if default_file.is_file():
-            self.assertIsInstance(default_auth.credential, CredentialClient)
-        else:
-            self.assertEqual(default_auth.credential, None)
-
-        auth_name_not_exit = Auth.from_dict({'name': 'not_exist'})
-        self.assertEqual(auth_name_not_exit.credential, None)
+        with mock.patch('iact3.config.DEFAULT_AUTH_FILE', self.DATA_PATH / 'missing-auth.json'):
+            self.assertIsNone(Auth().credential)
+            self.assertIsNone(Auth.from_dict({'name': 'not_exist'}).credential)
 
     def test_get_template(self):
         template_config = TemplateConfig.from_dict({})
