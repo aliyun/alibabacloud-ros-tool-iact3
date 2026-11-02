@@ -9,7 +9,7 @@ Iact3(IaC Template Testing Tool) is a tool that tests [Alibaba Cloud ROS(Resourc
 It provides both a **command-line interface (CLI)** and a **web-based UI** for an interactive experience.
 
 [![alibabacloud-ros-iact3](https://img.shields.io/pypi/v/alibabacloud-ros-iact3.svg)](https://pypi.python.org/pypi/alibabacloud-ros-iact3)
-[![alibabacloud-ros-iact3](https://img.shields.io/pypi/pyversions/alibabacloud-ros-iact3.svg)](https://pypi.python.org/pypi/alibabacloud-ros-iact3)
+[![Python 3.7–3.14](https://img.shields.io/badge/python-3.7--3.14-blue.svg)](#requirements)
 
 Iact3 (IaC Template Testing Tool) is a CLI for testing
 [Alibaba Cloud ROS(Resource Orchestration Service)](https://www.alibabacloud.com/help/resource-orchestration-service)
@@ -21,7 +21,7 @@ and [Terraform](https://developer.hashicorp.com/terraform) templates.
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.7–3.14
 
 ## Installation
 
