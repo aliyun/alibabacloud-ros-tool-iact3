@@ -24,6 +24,7 @@ node_modules/
 /.coverage
 /coverage.json
 /coverage.xml
+/reports/
 website/build/
 website/.docusaurus/
 website/.cache-loader/

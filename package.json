@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "test:web": "node --test tests/web/*.test.cjs",
-    "coverage:web": "IACT3_COVERAGE=1 nyc --all --include 'iact3/web/static/**/*.js' --reporter=text --reporter=lcov --reporter=cobertura node --test tests/web/*.test.cjs"
+    "coverage:web": "mkdir -p reports && IACT3_COVERAGE=1 nyc --all --include 'iact3/web/static/**/*.js' --reporter=text --reporter=lcov --reporter=cobertura node --test --test-reporter=spec --test-reporter=junit --test-reporter-destination=stdout --test-reporter-destination=reports/testcase.xml tests/web/*.test.cjs"
   },
   "devDependencies": {
     "istanbul-lib-instrument": "6.0.3",

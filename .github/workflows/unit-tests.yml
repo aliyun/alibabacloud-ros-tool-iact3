@@ -22,6 +22,27 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - run: npm run coverage:web
+      - name: Save frontend test results
+        if: ${{ !cancelled() && hashFiles('reports/testcase.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ut-test-results-frontend
+          path: reports/testcase.xml
+          if-no-files-found: error
+
+      - name: Upload frontend test results to Codecov
+        if: ${{ !cancelled() && hashFiles('reports/testcase.xml') != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: aliyun/alibabacloud-ros-tool-iact3
+          report_type: test_results
+          files: reports/testcase.xml
+          flags: frontend
+          name: ut-test-results-frontend
+          disable_search: true
+          fail_ci_if_error: true
+
       - name: Normalize frontend coverage report name
         if: ${{ !cancelled() && hashFiles('coverage/cobertura-coverage.xml') != '' }}
         run: cp coverage/cobertura-coverage.xml coverage/coverage.xml
@@ -87,8 +108,29 @@ jobs:
         if: matrix.python-version == '3.14'
         run: |
           uv pip install coverage==7.17.0
-          .venv/bin/coverage run --branch --source=iact3 -m pytest tests
+          .venv/bin/coverage run --branch --source=iact3 -m pytest tests --junitxml=reports/testcase.xml
           .venv/bin/coverage json -o coverage.json
+
+      - name: Save main test results
+        if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('reports/testcase.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ut-test-results-main
+          path: reports/testcase.xml
+          if-no-files-found: error
+
+      - name: Upload main test results to Codecov
+        if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('reports/testcase.xml') != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: aliyun/alibabacloud-ros-tool-iact3
+          report_type: test_results
+          files: reports/testcase.xml
+          flags: main
+          name: ut-test-results-main
+          disable_search: true
+          fail_ci_if_error: true
 
       - name: Generate main coverage XML
         if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('.coverage') != '' }}
