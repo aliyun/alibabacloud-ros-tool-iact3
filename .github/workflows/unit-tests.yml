@@ -16,11 +16,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - run: npm run coverage:web
+      - name: Normalize frontend coverage report name
+        if: ${{ !cancelled() && hashFiles('coverage/cobertura-coverage.xml') != '' }}
+        run: cp coverage/cobertura-coverage.xml coverage/coverage.xml
       - name: Check web coverage
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -30,6 +34,25 @@ jobs:
           else
             python3 scripts/check_web_coverage.py coverage/lcov.info
           fi
+
+      - name: Save frontend coverage report
+        if: ${{ !cancelled() && hashFiles('coverage/coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ut-coverage-frontend
+          path: coverage/coverage.xml
+          if-no-files-found: error
+
+      - name: Upload frontend coverage to Codecov
+        if: ${{ !cancelled() && hashFiles('coverage/coverage.xml') != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: aliyun/alibabacloud-ros-tool-iact3
+          files: coverage/coverage.xml
+          flags: frontend
+          disable_search: true
+          fail_ci_if_error: true
 
   test:
     name: Python ${{ matrix.python-version }}
@@ -43,6 +66,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v5
         with:
@@ -66,6 +90,10 @@ jobs:
           .venv/bin/coverage run --branch --source=iact3 -m pytest tests
           .venv/bin/coverage json -o coverage.json
 
+      - name: Generate main coverage XML
+        if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('.coverage') != '' }}
+        run: .venv/bin/coverage xml -o coverage.xml
+
       - name: Check coverage
         if: matrix.python-version == '3.14'
         env:
@@ -76,3 +104,47 @@ jobs:
           else
             .venv/bin/python scripts/check_coverage.py coverage.json
           fi
+
+      - name: Save main coverage report
+        if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ut-coverage-main
+          path: coverage.xml
+          if-no-files-found: error
+
+      - name: Upload main coverage to Codecov
+        if: ${{ !cancelled() && matrix.python-version == '3.14' && hashFiles('coverage.xml') != '' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: aliyun/alibabacloud-ros-tool-iact3
+          files: coverage.xml
+          flags: main
+          disable_search: true
+          fail_ci_if_error: true
+
+  coverage-total:
+    needs: [web-test, test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ut-coverage-main
+          path: reports/main
+      - uses: actions/download-artifact@v4
+        with:
+          name: ut-coverage-frontend
+          path: reports/frontend
+      - name: Merge component coverage
+        run: python3 -m scripts.merge_coverage --output coverage.xml reports/main/coverage.xml reports/frontend/coverage.xml
+      - name: Save total coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ut-coverage
+          path: coverage.xml
+          if-no-files-found: error
